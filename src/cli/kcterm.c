@@ -127,47 +127,69 @@ exit_error(const char* where)
 }
 
 static void
-send_byte(int portfd, unsigned int byte, WINDOW* win)
+send_bytes(int portfd, const unsigned char* buf, int n, WINDOW* win)
 {
-  unsigned char buf[1] = { byte };
-  ssize_t rc;
+  ssize_t written = 0;
 
-  while ((rc = write(portfd, buf, 1)) <= 0)
+  while (written < n)
   {
-    if (rc < 0 && errno != EINTR)
-      exit_error("send byte");
+    ssize_t rc = write(portfd, &buf[written], n - written);
+    if (rc >= 0)
+      written += rc;
+    else if (errno != EINTR)
+      exit_error("send bytes");
   }
 
   int xmax, ymax;
-  int x, y;
-
   getmaxyx(win, ymax, xmax);
-  getyx(win, y, x);
+  --xmax;
 
-  if (x + 1 >= xmax)
+  if (n > xmax)
   {
-    mvwdelch(win, y, 0);
-    wmove(win, y, x - 1);
+    buf += n - xmax;
+    n = xmax;
   }
 
-  cchar_t cc;
-  wchar_t wc[CCHARW_MAX];
-  attr_t  attrs;
-  short   color_pair;
+  int x, y;
+  getyx(win, y, x);
 
-  wgetbkgrnd(win, &cc);
-  getcchar(&cc, wc, &attrs, &color_pair, 0);
+  int ndel = x + n - xmax;
+  if (ndel > 0)
+  {
+    wmove(win, y, 0);
+    for (int i = 0; i < ndel; ++i)
+      wdelch(win);
+    wmove(win, y, x - ndel);
+  }
 
-  wc[0] = kc_to_wide_char(byte);
+  for (int i = 0; i < n; ++i)
+  {
+    cchar_t cc;
+    wchar_t wc[CCHARW_MAX];
+    attr_t  attrs;
+    short   color_pair;
 
-  setcchar(&cc, wc, attrs, color_pair, 0);
-  wadd_wch(win, &cc);
+    wgetbkgrnd(win, &cc);
+    getcchar(&cc, wc, &attrs, &color_pair, 0);
+
+    wc[0] = kc_to_wide_char(buf[i]);
+
+    setcchar(&cc, wc, attrs, color_pair, 0);
+    wadd_wch(win, &cc);
+  }
 
   while (tcdrain(portfd) < 0)
   {
     if (errno != EINTR)
-      exit_error("send byte");
+      exit_error("send bytes");
   }
+}
+
+static inline void
+send_byte(int portfd, unsigned int byte, WINDOW* win)
+{
+  const unsigned char buf[1] = { byte };
+  send_bytes(portfd, buf, sizeof buf, win);
 }
 
 static void
@@ -259,6 +281,7 @@ receive_kctext(int portfd, WINDOW* win)
 static int
 handle_key_input(int portfd, WINDOW* win)
 {
+  static const unsigned char kctab[] = { '\033', '0' };
   unsigned int  kc;
   wint_t        wc = L'\0';
 
@@ -267,8 +290,9 @@ handle_key_input(int portfd, WINDOW* win)
     case OK:
       if (wc == L'\4') // C-d: quit
         return 1;
-      kc = kc_from_wide_char(wc);
-      if (kc)
+      if (wc == L'\t')
+        send_bytes(portfd, kctab, sizeof kctab, win);
+      else if ((kc = kc_from_wide_char(wc)))
         send_byte(portfd, kc, win);
       else
         flash();
