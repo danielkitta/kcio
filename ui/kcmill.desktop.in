@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+_Name=KC-Mill
+_Comment=Control and exchange data with a KC 85 computer
+Exec=kcmill
+Icon=kcmill
+StartupNotify=true
+Categories=GTK;System;

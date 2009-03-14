@@ -1,0 +1,15 @@
+.deps
+Makefile.in
+Makefile
+/INSTALL
+/aclocal.m4
+/compile
+/config.h.in
+/config.h
+/configure
+/depcomp
+/install-sh
+/intltool-*
+/m4/intltool.m4
+/missing
+/mkinstalldirs
