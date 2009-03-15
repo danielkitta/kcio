@@ -185,13 +185,6 @@ send_bytes(int portfd, const unsigned char* buf, int n, WINDOW* win)
   }
 }
 
-static inline void
-send_byte(int portfd, unsigned int byte, WINDOW* win)
-{
-  const unsigned char buf[1] = { byte };
-  send_bytes(portfd, buf, sizeof buf, win);
-}
-
 static void
 init_serial_port(int portfd, const char* portname)
 {
@@ -281,9 +274,9 @@ receive_kctext(int portfd, WINDOW* win)
 static int
 handle_key_input(int portfd, WINDOW* win)
 {
-  static const unsigned char kctab[] = { '\033', '0' };
-  unsigned int  kc;
+  static const unsigned char kctab[] = { 0x1B, 0x30 }; // ESC 0
   wint_t        wc = L'\0';
+  unsigned char kc;
 
   switch (wget_wch(win, &wc))
   {
@@ -293,18 +286,15 @@ handle_key_input(int portfd, WINDOW* win)
       if (wc == L'\t')
         send_bytes(portfd, kctab, sizeof kctab, win);
       else if ((kc = kc_from_wide_char(wc)))
-        send_byte(portfd, kc, win);
+        send_bytes(portfd, &kc, 1, win);
       else
         flash();
       break;
 
     case KEY_CODE_YES:
-      if (wc >= KEY_MIN && wc < KEY_MIN + N_ELEMENTS(keypad2kc))
-      {
-        kc = keypad2kc[wc - KEY_MIN];
-        if (kc)
-          send_byte(portfd, kc, win);
-      }
+      if (wc >= KEY_MIN && wc < KEY_MIN + N_ELEMENTS(keypad2kc)
+          && keypad2kc[wc - KEY_MIN])
+        send_bytes(portfd, &keypad2kc[wc - KEY_MIN], 1, win);
       break;
 
     default:
