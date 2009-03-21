@@ -7,10 +7,7 @@ stamp-[hi]?
 /aclocal.m4
 /autom4te.cache
 /compile
-/config.h.in
-/config.h
-/config.log
-/config.status
+/config.*
 /configure
 /configure.lineno
 /depcomp
