@@ -27,7 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <alsa/asoundlib.h>
-#include "../libkc/libkc.h"
+#include <libkc.h>
 
 enum BitLength
 {

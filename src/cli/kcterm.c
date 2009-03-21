@@ -29,7 +29,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <curses.h>
-#include "../libkc/libkc.h"
+#include <libkc.h>
 
 #define BAUDRATE_KEYBOARD B1200
 #define N_ELEMENTS(array) (sizeof(array) / sizeof((array)[0]))

@@ -54,7 +54,8 @@ src_kcmill_SOURCES =	\
 # The location of the gettext catalogs as defined by intltool.
 kclocaledir = $(prefix)/$(DATADIRNAME)/locale
 global_defs = -DKCMILL_LOCALEDIR=\""$(kclocaledir)"\" -DKCMILL_PKGDATADIR=\""$(pkgdatadir)"\"
-AM_CPPFLAGS = $(global_defs) -I$(top_builddir) $(CURSES_CFLAGS) $(KCMILL_MODULES_CFLAGS)
+kc_includes = -I$(top_srcdir)/src/libkc -I$(top_builddir)
+AM_CPPFLAGS = $(global_defs) $(kc_includes) $(CURSES_CFLAGS) $(KCMILL_MODULES_CFLAGS)
 AM_CFLAGS   = $(LIBKC_WFLAGS)
 AM_CXXFLAGS = $(KCMILL_WXXFLAGS)
 
