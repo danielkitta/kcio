@@ -62,7 +62,7 @@ src_cli_kcplay_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
 src_cli_kcrec_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
 src_cli_kcsend_LDADD	= $(noinst_LIBRARIES)
 src_cli_kcterm_LDADD	= $(noinst_LIBRARIES) $(CURSES_LIBS)
-src_kckeyb_kckeyb_LDADD	= $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
+src_kckeyb_kckeyb_LDADD	= $(noinst_LIBRARIES) $(KCKEYB_MODULES_LIBS) $(INTLLIBS)
 src_kcmill_LDADD	= $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 
 iconthemedir	    = $(datadir)/icons/hicolor

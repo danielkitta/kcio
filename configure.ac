@@ -1,4 +1,4 @@
-## Copyright (c) 2008  Daniel Elstner <daniel.kitta@gmail.com>
+## Copyright (c) 2008-2009  Daniel Elstner <daniel.kitta@gmail.com>
 ##
 ## This file is part of KC-Mill.
 ##
@@ -44,6 +44,7 @@ AM_GLIB_GNU_GETTEXT()
 
 DK_MODULE_CURSES()
 PKG_CHECK_MODULES([KCMILL_MODULES], [alsa >= 1.0 gtkmm-2.4 >= 2.12])
+PKG_CHECK_MODULES([KCKEYB_MODULES], [gtkmm-2.4 >= 2.12])
 PKG_CHECK_MODULES([KCREC_MODULES], [alsa >= 1.0])
 DK_PKG_PATH_PROG([GTK_UPDATE_ICON_CACHE], [gtk+-2.0], [gtk-update-icon-cache])
 
@@ -52,12 +53,12 @@ AC_TYPE_INT16_T()
 AC_TYPE_UINT8_T()
 
 DK_ARG_ENABLE_WARNINGS([LIBKC_WFLAGS],
-                       [-Wall -w1],
-                       [-pedantic -Wall -Wextra -w1])
+                       [-Wall],
+                       [-pedantic -Wall -Wextra])
 AC_LANG([C++])
 DK_ARG_ENABLE_WARNINGS([KCMILL_WXXFLAGS],
-                       [-Wall -w1],
-                       [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra -w1],
+                       [-Wall],
+                       [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra],
                        [LIBSIGC PANGO G GDK GDK_PIXBUF GTK GLIBMM GDKMM GTKMM])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
