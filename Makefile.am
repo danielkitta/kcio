@@ -45,8 +45,12 @@ src_cli_kcrec_SOURCES  = src/cli/kcrec.c
 src_cli_kcsend_SOURCES = src/cli/kcsend.c
 src_cli_kcterm_SOURCES = src/cli/kcterm.c
 
-src_kckeyb_kckeyb_SOURCES =	\
-	src/kckeyb/main.cc
+src_kckeyb_kckeyb_SOURCES =		\
+	src/kckeyb/inputwindow.cc	\
+	src/kckeyb/inputwindow.h	\
+	src/kckeyb/main.cc		\
+	src/kckeyb/serialport.cc	\
+	src/kckeyb/serialport.h
 
 src_kcmill_SOURCES =	\
 	src/main.cc
