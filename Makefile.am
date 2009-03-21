@@ -33,10 +33,11 @@ src_libkc_libkc_a_SOURCES =	\
 	src/libkc/libkc.h
 
 bin_PROGRAMS =		\
-	src/cli/kcplay  \
-	src/cli/kcrec   \
-	src/cli/kcsend  \
-	src/cli/kcterm  \
+	src/cli/kcplay	\
+	src/cli/kcrec	\
+	src/cli/kcsend	\
+	src/cli/kcterm	\
+	src/kckeyb	\
 	src/kcmill
 
 src_cli_kcplay_SOURCES = src/cli/kcplay.c
@@ -44,7 +45,10 @@ src_cli_kcrec_SOURCES  = src/cli/kcrec.c
 src_cli_kcsend_SOURCES = src/cli/kcsend.c
 src_cli_kcterm_SOURCES = src/cli/kcterm.c
 
-src_kcmill_SOURCES =    \
+src_kckeyb_SOURCES =	\
+	src/kckeyb.cc
+
+src_kcmill_SOURCES =	\
 	src/main.cc
 
 # The location of the gettext catalogs as defined by intltool.
@@ -58,6 +62,7 @@ src_cli_kcplay_LDADD = $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
 src_cli_kcrec_LDADD  = $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
 src_cli_kcsend_LDADD = $(noinst_LIBRARIES)
 src_cli_kcterm_LDADD = $(noinst_LIBRARIES) $(CURSES_LIBS)
+src_kckeyb_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 src_kcmill_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 
 iconthemedir	    = $(datadir)/icons/hicolor
