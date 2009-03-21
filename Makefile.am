@@ -66,8 +66,14 @@ src_kckeyb_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 src_kcmill_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 
 iconthemedir	    = $(datadir)/icons/hicolor
-appicondir	    = $(iconthemedir)/48x48/apps
-dist_appicon_DATA   = ui/kcmill.png
+appicondir	    = $(iconthemedir)/scalable/apps
+appicon16dir	    = $(iconthemedir)/16x16/apps
+appicon24dir	    = $(iconthemedir)/24x24/apps
+appicon48dir	    = $(iconthemedir)/48x48/apps
+dist_appicon_DATA   = ui/kcmill.svg
+dist_appicon16_DATA = ui/16x16/kcmill.png
+dist_appicon24_DATA = ui/24x24/kcmill.png
+dist_appicon48_DATA = ui/48x48/kcmill.png
 
 desktop_in_files    = ui/kcmill.desktop.in
 desktopdir          = $(datadir)/applications
