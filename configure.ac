@@ -59,7 +59,7 @@ AC_LANG([C++])
 DK_ARG_ENABLE_WARNINGS([KCMILL_WXXFLAGS],
                        [-Wall],
                        [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra],
-                       [LIBSIGC PANGO G GDK GDK_PIXBUF GTK GLIBMM GDKMM GTKMM])
+                       [LIBSIGC PANGO G GDK GDK_PIXBUF GLIBMM GDKMM GTKMM])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
 AC_OUTPUT()
