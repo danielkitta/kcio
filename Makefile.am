@@ -1,4 +1,4 @@
-## Copyright (c) 2008  Daniel Elstner <daniel.kitta@gmail.com>
+## Copyright (c) 2008-2009  Daniel Elstner <daniel.kitta@gmail.com>
 ##
 ## This file is part of KC-Mill.
 ##
@@ -32,12 +32,12 @@ src_libkc_libkc_a_SOURCES =	\
 	src/libkc/charset.c	\
 	src/libkc/libkc.h
 
-bin_PROGRAMS =		\
-	src/cli/kcplay	\
-	src/cli/kcrec	\
-	src/cli/kcsend	\
-	src/cli/kcterm	\
-	src/kckeyb	\
+bin_PROGRAMS =			\
+	src/cli/kcplay		\
+	src/cli/kcrec		\
+	src/cli/kcsend		\
+	src/cli/kcterm		\
+	src/kckeyb/kckeyb	\
 	src/kcmill
 
 src_cli_kcplay_SOURCES = src/cli/kcplay.c
@@ -45,8 +45,8 @@ src_cli_kcrec_SOURCES  = src/cli/kcrec.c
 src_cli_kcsend_SOURCES = src/cli/kcsend.c
 src_cli_kcterm_SOURCES = src/cli/kcterm.c
 
-src_kckeyb_SOURCES =	\
-	src/kckeyb.cc
+src_kckeyb_kckeyb_SOURCES =	\
+	src/kckeyb/main.cc
 
 src_kcmill_SOURCES =	\
 	src/main.cc
@@ -58,12 +58,12 @@ AM_CPPFLAGS = $(global_defs) -I$(top_builddir) $(CURSES_CFLAGS) $(KCMILL_MODULES
 AM_CFLAGS   = $(LIBKC_WFLAGS)
 AM_CXXFLAGS = $(KCMILL_WXXFLAGS)
 
-src_cli_kcplay_LDADD = $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
-src_cli_kcrec_LDADD  = $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
-src_cli_kcsend_LDADD = $(noinst_LIBRARIES)
-src_cli_kcterm_LDADD = $(noinst_LIBRARIES) $(CURSES_LIBS)
-src_kckeyb_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
-src_kcmill_LDADD     = $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
+src_cli_kcplay_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
+src_cli_kcrec_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
+src_cli_kcsend_LDADD	= $(noinst_LIBRARIES)
+src_cli_kcterm_LDADD	= $(noinst_LIBRARIES) $(CURSES_LIBS)
+src_kckeyb_kckeyb_LDADD	= $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
+src_kcmill_LDADD	= $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 
 iconthemedir	    = $(datadir)/icons/hicolor
 appicondir	    = $(iconthemedir)/scalable/apps
