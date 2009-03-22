@@ -84,6 +84,8 @@ desktop_in_files    = ui/kcmill.desktop.in
 desktopdir          = $(datadir)/applications
 desktop_DATA        = ui/kcmill.desktop
 
+dist_pkgdata_DATA   = ui/keymap.conf
+
 dist_intltool       = intltool-extract.in intltool-merge.in intltool-update.in
 dist_noinst_DATA    = $(dist_intltool) $(desktop_in_files)
 dist_noinst_SCRIPTS = autogen.sh
