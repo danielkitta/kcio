@@ -114,7 +114,9 @@ SerialPort::SerialPort(const std::string& portname)
 }
 
 SerialPort::~SerialPort()
-{}
+{
+  input_handler_.disconnect();
+}
 
 void SerialPort::close()
 {
@@ -128,6 +130,14 @@ void SerialPort::close()
     }
     portfd_.reset();
   }
+}
+
+void SerialPort::set_input_handler(const sigc::slot<bool, Glib::IOCondition>& slot)
+{
+  // FIXME: not strongly exception-safe
+  sigc::connection old_handler = input_handler_;
+  input_handler_ = Glib::signal_io().connect(slot, portfd_.get(), Glib::IO_IN | Glib::IO_HUP);
+  old_handler.disconnect();
 }
 
 } // namespace KC

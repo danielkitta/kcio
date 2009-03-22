@@ -20,6 +20,8 @@
 #ifndef KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
 #define KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
 
+#include <sigc++/sigc++.h>
+#include <glibmm.h>
 #include <string>
 
 namespace KC
@@ -36,6 +38,7 @@ private:
 public:
   explicit ScopedUnixFile(int fd) : fd_ (fd) {}
   ~ScopedUnixFile();
+
   int get() const { return fd_; }
   void reset(int fd = -1) { fd_ = fd; }
 };
@@ -45,11 +48,15 @@ class SerialPort
 public:
   explicit SerialPort(const std::string& filename);
   ~SerialPort();
+
   void close();
+  void set_input_handler(const sigc::slot<bool, Glib::IOCondition>& slot);
 
 private:
-  std::string    portname_;
-  ScopedUnixFile portfd_;
+  std::string      portname_;
+  ScopedUnixFile   portfd_;
+  sigc::connection input_handler_;
+
   // noncopyable
   SerialPort(const SerialPort&);
   SerialPort& operator=(const SerialPort&);
