@@ -41,9 +41,9 @@ static void throw_file_error(const std::string& filename, int err_no)
 
 static void init_serial_port(int portfd, const std::string& portname)
 {
-  const int fdflags = fcntl(portfd, F_GETFD, 0);
+  const int flags = fcntl(portfd, F_GETFD, 0);
 
-  if (fdflags < 0 || fcntl(portfd, F_SETFD, fdflags | FD_CLOEXEC) < 0)
+  if (flags < 0 || fcntl(portfd, F_SETFD, flags | FD_CLOEXEC) < 0)
     throw_file_error(portname, errno);
 
   struct termios portattr;
@@ -82,11 +82,6 @@ static void init_serial_port(int portfd, const std::string& portname)
                           Glib::ustring::compose("\"%1\": serial port configuration not supported",
                                                  Glib::filename_display_name(portname)));
   }
-
-  const int flags = fcntl(portfd, F_GETFL, 0);
-
-  if (flags < 0 || fcntl(portfd, F_SETFL, flags & ~O_NONBLOCK) < 0)
-    throw_file_error(portname, errno);
 }
 
 } // anonymous namespace
