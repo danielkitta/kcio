@@ -18,8 +18,8 @@
  */
 
 #include <config.h>
+#include "controller.h"
 #include "inputwindow.h"
-#include "serialport.h"
 #include <glibmm.h>
 #include <gtkmm/main.h>
 #include <glib.h>
@@ -94,13 +94,18 @@ int main(int argc, char** argv)
     Gtk::Main kit (argc, argv, options->context());
     Glib::set_application_name("KC-Keyboard");
 
-    KC::SerialPort port (options->portname());
+    KC::Controller controller (options->portname());
     options.reset();
     KC::InputWindow window;
 
+    controller.signal_mode_switch()
+      .connect(sigc::mem_fun(window, &KC::InputWindow::set_keyboard_mode));
+    window.signal_translated_key()
+      .connect(sigc::mem_fun(controller, &KC::Controller::send_key_sequence));
+
     Gtk::Main::run(window);
 
-    port.close();
+    controller.shutdown();
     return 0;
   }
   catch (const Glib::OptionError& error)

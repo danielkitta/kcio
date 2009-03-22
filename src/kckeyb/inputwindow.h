@@ -20,6 +20,7 @@
 #ifndef KCMILL_KCKEYB_INPUTWINDOW_H_INCLUDED
 #define KCMILL_KCKEYB_INPUTWINDOW_H_INCLUDED
 
+#include "controller.h"
 #include <gdkmm.h>
 #include <gtkmm/window.h>
 #include <algorithm>
@@ -28,15 +29,6 @@
 
 namespace KC
 {
-
-enum KeyboardMode
-{
-  KEYBOARD_RAW  = 0,
-  KEYBOARD_CAOS = 1,
-  KEYBOARD_CPM  = 2,
-  KEYBOARD_TPKC = 3,
-  KEYBOARD_COUNT
-};
 
 struct MappedKey
 {
@@ -61,7 +53,9 @@ public:
   InputWindow();
   virtual ~InputWindow();
 
-  sigc::signal<void, std::string>& signal_translated_key() { return signal_translated_key_; }
+  sigc::signal<bool, std::string>& signal_translated_key() { return signal_translated_key_; }
+
+  void set_keyboard_mode(KeyboardMode mode);
 
 protected:
   virtual bool on_button_press_event(GdkEventButton* event);
@@ -75,7 +69,7 @@ private:
   std::vector<KeyMap> keymaps_;
   KeyboardMode        kbdmode_;
 
-  sigc::signal<void, std::string> signal_translated_key_;
+  sigc::signal<bool, std::string> signal_translated_key_;
 
   void read_keymap_config();
   std::string translate_keyval(unsigned int keyval, Gdk::ModifierType state) const;

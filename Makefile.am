@@ -46,6 +46,8 @@ src_cli_kcsend_SOURCES = src/cli/kcsend.c
 src_cli_kcterm_SOURCES = src/cli/kcterm.c
 
 src_kckeyb_kckeyb_SOURCES =		\
+	src/kckeyb/controller.cc	\
+	src/kckeyb/controller.h		\
 	src/kckeyb/inputwindow.cc	\
 	src/kckeyb/inputwindow.h	\
 	src/kckeyb/main.cc		\

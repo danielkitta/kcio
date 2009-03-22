@@ -76,6 +76,11 @@ InputWindow::InputWindow()
 InputWindow::~InputWindow()
 {}
 
+void InputWindow::set_keyboard_mode(KeyboardMode mode)
+{
+  kbdmode_ = mode;
+}
+
 bool InputWindow::on_button_press_event(GdkEventButton*)
 {
   hide();
@@ -88,7 +93,9 @@ bool InputWindow::on_key_press_event(GdkEventKey* event)
 
   if (!kcseq.empty())
   {
-    signal_translated_key_.emit(kcseq);
+    if (!signal_translated_key_.emit(kcseq))
+      get_display()->beep();
+
     return true; // handled
   }
   return Gtk::Window::on_key_press_event(event);
