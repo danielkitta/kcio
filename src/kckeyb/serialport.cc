@@ -28,6 +28,31 @@
 namespace
 {
 
+class ScopedPollFD : public Glib::PollFD
+{
+public:
+  ScopedPollFD(int fd, Glib::IOCondition events) : Glib::PollFD(fd, events) {}
+  ~ScopedPollFD();
+
+private:
+  // noncopyable
+  ScopedPollFD(const ScopedPollFD&);
+  ScopedPollFD& operator=(const ScopedPollFD&);
+};
+
+ScopedPollFD::~ScopedPollFD()
+{
+  if (get_fd() >= 0)
+  {
+    int rc;
+    do
+      rc = close(get_fd());
+    while (rc < 0 && errno == EINTR);
+
+    g_return_if_fail(rc == 0);
+  }
+}
+
 static void throw_file_error(const std::string& filename, int err_no) G_GNUC_NORETURN;
 static void throw_file_error(const std::string& filename, int err_no)
 {
@@ -89,55 +114,141 @@ static void init_serial_port(int portfd, const std::string& portname)
 namespace KC
 {
 
-ScopedUnixFile::~ScopedUnixFile()
+class PortSource : public Glib::Source
 {
-  if (fd_ >= 0)
-  {
-    int rc;
-    do
-      rc = close(fd_);
-    while (rc < 0 && errno == EINTR);
+public:
+  typedef PortSource CppObjectType;
 
-    g_return_if_fail(rc == 0);
+  static Glib::RefPtr<PortSource> create(int fd);
+  sigc::connection connect(const sigc::slot<void, Glib::IOCondition>& slot);
+
+  int get_fd() { return poll_fd_.get_fd(); }
+  int close();
+
+  void enable_events(Glib::IOCondition events);
+  void disable_events(Glib::IOCondition events);
+
+protected:
+  explicit PortSource(int fd);
+  virtual ~PortSource();
+
+  virtual bool prepare(int& timeout);
+  virtual bool check();
+  virtual bool dispatch(sigc::slot_base* slot);
+
+private:
+  ScopedPollFD poll_fd_;
+};
+
+// static
+Glib::RefPtr<PortSource> PortSource::create(int fd)
+{
+  return Glib::RefPtr<PortSource>(new PortSource(fd));
+}
+
+sigc::connection PortSource::connect(const sigc::slot<void, Glib::IOCondition>& slot)
+{
+  return connect_generic(slot);
+}
+
+int PortSource::close()
+{
+  const int fd = poll_fd_.get_fd();
+
+  if (fd >= 0)
+  {
+    remove_poll(poll_fd_);
+
+    while (::close(fd) < 0)
+    {
+      const int err_no = errno;
+
+      if (err_no != EINTR)
+        return err_no;
+    }
+
+    poll_fd_.set_fd(-1);
+    poll_fd_.set_revents(Glib::IOCondition());
   }
+
+  return 0;
+}
+
+void PortSource::enable_events(Glib::IOCondition events)
+{
+  poll_fd_.set_events(poll_fd_.get_events() | events);
+  get_context()->wakeup();
+}
+
+void PortSource::disable_events(Glib::IOCondition events)
+{
+  poll_fd_.set_events(poll_fd_.get_events() & ~events);
+  get_context()->wakeup();
+}
+
+PortSource::PortSource(int fd)
+:
+  poll_fd_ (fd, Glib::IO_IN)
+{
+  add_poll(poll_fd_);
+}
+
+PortSource::~PortSource()
+{}
+
+bool PortSource::prepare(int& timeout)
+{
+  timeout = -1;
+  return false;
+}
+
+bool PortSource::check()
+{
+  return ((poll_fd_.get_revents() & poll_fd_.get_events()) != 0);
+}
+
+bool PortSource::dispatch(sigc::slot_base* slot)
+{
+  (*static_cast<sigc::slot<void, Glib::IOCondition>*>(slot))(poll_fd_.get_revents());
+  return true;
 }
 
 SerialPort::SerialPort(const std::string& portname)
 :
   portname_ (portname),
-  portfd_   (open(portname_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK))
+  port_     (PortSource::create(open(portname_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)))
 {
-  if (portfd_.get() < 0)
+  if (port_->get_fd() < 0)
     throw_file_error(portname_, errno);
 
-  init_serial_port(portfd_.get(), portname_);
+  init_serial_port(port_->get_fd(), portname_);
 }
 
 SerialPort::~SerialPort()
 {
-  input_handler_.disconnect();
+  io_handler_.disconnect();
 }
 
 void SerialPort::close()
 {
-  if (portfd_.get() >= 0)
-  {
-    while (::close(portfd_.get()) < 0)
-    {
-      const int err_no = errno;
-      if (err_no != EINTR)
-        throw_file_error(portname_, err_no);
-    }
-    portfd_.reset();
-  }
+  if (const int err_no = port_->close())
+    throw_file_error(portname_, err_no);
 }
 
-void SerialPort::set_input_handler(const sigc::slot<bool, Glib::IOCondition>& slot)
+void SerialPort::set_io_handler(const sigc::slot<void, Glib::IOCondition>& slot)
 {
-  // FIXME: not strongly exception-safe
-  sigc::connection old_handler = input_handler_;
-  input_handler_ = Glib::signal_io().connect(slot, portfd_.get(), Glib::IO_IN | Glib::IO_HUP);
-  old_handler.disconnect();
+  // FIXME: disconnect old one?
+  io_handler_ = port_->connect(slot);
+}
+
+void SerialPort::enable_events(Glib::IOCondition events)
+{
+  port_->enable_events(events);
+}
+
+void SerialPort::disable_events(Glib::IOCondition events)
+{
+  port_->disable_events(events);
 }
 
 } // namespace KC

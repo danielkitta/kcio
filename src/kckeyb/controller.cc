@@ -32,7 +32,7 @@ Controller::Controller(const std::string& portname)
   outbox_ (),
   port_   (portname)
 {
-  port_.set_input_handler(sigc::mem_fun(*this, &Controller::on_serial_input));
+  port_.set_io_handler(sigc::mem_fun(*this, &Controller::on_serial_io));
 }
 
 Controller::~Controller()
@@ -53,9 +53,9 @@ void Controller::shutdown()
   port_.close();
 }
 
-bool Controller::on_serial_input(Glib::IOCondition)
+void Controller::on_serial_io(Glib::IOCondition condition)
 {
-  return true; // keep handler
+  g_printerr("KC::Controller::on_serial_input(0x%.2X)\n", unsigned(condition));
 }
 
 } // namespace KC

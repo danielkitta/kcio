@@ -56,7 +56,7 @@ private:
   SerialPort  port_;
   sigc::signal<void, KeyboardMode> signal_mode_switch_;
 
-  bool on_serial_input(Glib::IOCondition condition);
+  void on_serial_io(Glib::IOCondition condition);
 };
 
 } // namespace KC

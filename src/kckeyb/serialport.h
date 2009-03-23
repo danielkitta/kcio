@@ -27,21 +27,7 @@
 namespace KC
 {
 
-class ScopedUnixFile
-{
-private:
-  int fd_;
-  // noncopyable
-  ScopedUnixFile(const ScopedUnixFile&);
-  ScopedUnixFile& operator=(const ScopedUnixFile&);
-
-public:
-  explicit ScopedUnixFile(int fd) : fd_ (fd) {}
-  ~ScopedUnixFile();
-
-  int get() const { return fd_; }
-  void reset(int fd = -1) { fd_ = fd; }
-};
+class PortSource;
 
 class SerialPort
 {
@@ -50,12 +36,15 @@ public:
   ~SerialPort();
 
   void close();
-  void set_input_handler(const sigc::slot<bool, Glib::IOCondition>& slot);
+  void set_io_handler(const sigc::slot<void, Glib::IOCondition>& slot);
+
+  void enable_events(Glib::IOCondition events);
+  void disable_events(Glib::IOCondition events);
 
 private:
-  std::string      portname_;
-  ScopedUnixFile   portfd_;
-  sigc::connection input_handler_;
+  std::string              portname_;
+  Glib::RefPtr<PortSource> port_;
+  sigc::connection         io_handler_;
 
   // noncopyable
   SerialPort(const SerialPort&);
