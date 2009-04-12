@@ -20,35 +20,67 @@
 #ifndef KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
 #define KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
 
-#include <sigc++/sigc++.h>
 #include <glibmm.h>
 #include <string>
 
 namespace KC
 {
 
-class PortSource;
-
-class SerialPort
+class ScopedPollFD : public Glib::PollFD
 {
 public:
-  explicit SerialPort(const std::string& filename);
-  ~SerialPort();
+  explicit ScopedPollFD(int fd) : Glib::PollFD(fd) {}
+  ~ScopedPollFD();
 
-  void close();
-  void set_io_handler(const sigc::slot<void, Glib::IOCondition>& slot);
+private:
+  // noncopyable
+  ScopedPollFD(const ScopedPollFD&);
+  ScopedPollFD& operator=(const ScopedPollFD&);
+};
 
+class SerialPort : public Glib::Source
+{
+public:
+  typedef SerialPort CppObjectType;
+
+  static Glib::RefPtr<SerialPort> create(const std::string& portname);
+
+  sigc::connection connect(const sigc::slot<void, Glib::IOCondition>& slot)
+    { return connect_generic(slot); }
+
+  void reset_timeout(int milliseconds);
   void enable_events(Glib::IOCondition events);
   void disable_events(Glib::IOCondition events);
 
-private:
-  std::string              portname_;
-  Glib::RefPtr<PortSource> port_;
-  sigc::connection         io_handler_;
+  int read_byte();
+  std::string::size_type write_bytes(const std::string& sequence);
+  void discard();
+  void close();
 
-  // noncopyable
-  SerialPort(const SerialPort&);
-  SerialPort& operator=(const SerialPort&);
+  Glib::ustring display_portname() const;
+
+protected:
+  explicit SerialPort(const std::string& portname);
+  virtual ~SerialPort();
+
+  virtual bool prepare(int& timeout);
+  virtual bool check();
+  virtual bool dispatch(sigc::slot_base* slot);
+
+  long long get_current_time();
+
+private:
+  long long     expiration_;
+  std::string   portname_;
+  ScopedPollFD  poll_fd_;
+  int           remaining_;
+  unsigned int  inlen_;
+  unsigned int  inpos_;
+  unsigned char inbuf_[128];
+
+  void setup_interface();
+  void check_file_error();
+  void throw_file_error(int err_no) G_GNUC_NORETURN;
 };
 
 } // namespace KC

@@ -25,133 +25,115 @@
 #include <termios.h>
 #include <unistd.h>
 
-namespace
-{
-
-class ScopedPollFD : public Glib::PollFD
-{
-public:
-  ScopedPollFD(int fd, Glib::IOCondition events) : Glib::PollFD(fd, events) {}
-  ~ScopedPollFD();
-
-private:
-  // noncopyable
-  ScopedPollFD(const ScopedPollFD&);
-  ScopedPollFD& operator=(const ScopedPollFD&);
-};
-
-ScopedPollFD::~ScopedPollFD()
-{
-  if (get_fd() >= 0)
-  {
-    int rc;
-    do
-      rc = close(get_fd());
-    while (rc < 0 && errno == EINTR);
-
-    g_return_if_fail(rc == 0);
-  }
-}
-
-static void throw_file_error(const std::string& filename, int err_no) G_GNUC_NORETURN;
-static void throw_file_error(const std::string& filename, int err_no)
-{
-  g_assert(err_no != 0);
-
-  throw Glib::FileError(Glib::FileError::Code(g_file_error_from_errno(err_no)),
-                        Glib::ustring::compose("\"%1\": %2",
-                                               Glib::filename_display_name(filename),
-                                               Glib::strerror(err_no)));
-}
-
-static void init_serial_port(int portfd, const std::string& portname)
-{
-  const int flags = fcntl(portfd, F_GETFD, 0);
-
-  if (flags < 0 || fcntl(portfd, F_SETFD, flags | FD_CLOEXEC) < 0)
-    throw_file_error(portname, errno);
-
-  struct termios portattr;
-
-  if (tcgetattr(portfd, &portattr) < 0)
-    throw_file_error(portname, errno);
-
-  portattr.c_iflag &= ~(BRKINT | INPCK | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
-  portattr.c_iflag |= IGNBRK | IGNCR;
-
-  portattr.c_oflag &= ~(OPOST | OCRNL | OFILL);
-
-  portattr.c_cflag &= ~(CLOCAL | CSIZE | CSTOPB | PARENB);
-  portattr.c_cflag |= CREAD | CS8 | HUPCL | CRTSCTS; /* not in POSIX */
-
-  portattr.c_lflag &= ~(ICANON | IEXTEN | ISIG | ECHO | NOFLSH | TOSTOP);
-
-  portattr.c_cc[VINTR] = 3;
-  portattr.c_cc[VMIN]  = 1;
-  portattr.c_cc[VTIME] = 0;
-
-  enum { BAUDRATE_KEYBOARD = B1200 };
-
-  cfsetispeed(&portattr, BAUDRATE_KEYBOARD);
-  cfsetospeed(&portattr, BAUDRATE_KEYBOARD);
-
-  if (tcsetattr(portfd, TCSAFLUSH, &portattr) < 0
-      || tcgetattr(portfd, &portattr) < 0)
-    throw_file_error(portname, errno);
-
-  if ((portattr.c_cflag & (CSIZE | CSTOPB | PARENB | CRTSCTS)) != (CS8 | CRTSCTS)
-      || cfgetispeed(&portattr) != BAUDRATE_KEYBOARD
-      || cfgetospeed(&portattr) != BAUDRATE_KEYBOARD)
-  {
-    throw Glib::FileError(Glib::FileError::NO_SUCH_DEVICE,
-                          Glib::ustring::compose("\"%1\": serial port configuration not supported",
-                                                 Glib::filename_display_name(portname)));
-  }
-}
-
-} // anonymous namespace
-
 namespace KC
 {
 
-class PortSource : public Glib::Source
+ScopedPollFD::~ScopedPollFD()
 {
-public:
-  typedef PortSource CppObjectType;
+  const int fd = get_fd();
 
-  static Glib::RefPtr<PortSource> create(int fd);
-  sigc::connection connect(const sigc::slot<void, Glib::IOCondition>& slot);
+  if (fd >= 0)
+    while (close(fd) < 0)
+      if (errno != EINTR)
+      {
+        g_warning("Error on close(%d) in destructor: %s", fd, g_strerror(errno));
+        break;
+      }
+}
 
-  int get_fd() { return poll_fd_.get_fd(); }
-  int close();
+SerialPort::SerialPort(const std::string& portname)
+:
+  expiration_ (0),
+  portname_   (portname),
+  poll_fd_    (open(portname_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)),
+  remaining_  (-1),
+  inlen_      (0),
+  inpos_      (0)
+{
+  if (poll_fd_.get_fd() < 0)
+    throw_file_error(errno);
+  setup_interface();
 
-  void enable_events(Glib::IOCondition events);
-  void disable_events(Glib::IOCondition events);
+  set_can_recurse(false);
+  add_poll(poll_fd_);
+}
 
-protected:
-  explicit PortSource(int fd);
-  virtual ~PortSource();
-
-  virtual bool prepare(int& timeout);
-  virtual bool check();
-  virtual bool dispatch(sigc::slot_base* slot);
-
-private:
-  ScopedPollFD poll_fd_;
-};
+SerialPort::~SerialPort()
+{}
 
 // static
-Glib::RefPtr<PortSource> PortSource::create(int fd)
+Glib::RefPtr<SerialPort> SerialPort::create(const std::string& portname)
 {
-  return Glib::RefPtr<PortSource>(new PortSource(fd));
+  return Glib::RefPtr<SerialPort>(new SerialPort(portname));
 }
 
-sigc::connection PortSource::connect(const sigc::slot<void, Glib::IOCondition>& slot)
+int SerialPort::read_byte()
 {
-  return connect_generic(slot);
+  if (inpos_ >= inlen_)
+  {
+    inpos_ = 0;
+    // When reaching the end of the buffer, don't attempt to read more
+    // data right away, even though there might be more already in the
+    // queue.  Instead, return -1 and wait until the next turn to avoid
+    // starving the UI.
+    if (inlen_ != 0)
+    {
+      inlen_ = 0;
+      return -1;
+    }
+
+    const ssize_t nread = read(poll_fd_.get_fd(), inbuf_, sizeof inbuf_);
+
+    if (nread <= 0)
+    {
+      if (nread < 0)
+        check_file_error();
+
+      return -1;
+    }
+    inlen_ = nread;
+  }
+  return inbuf_[inpos_++];
 }
 
-int PortSource::close()
+void SerialPort::reset_timeout(int milliseconds)
+{
+  g_return_if_fail(milliseconds >= 0);
+
+  expiration_ = get_current_time() + milliseconds;
+  remaining_  = milliseconds;
+}
+
+void SerialPort::enable_events(Glib::IOCondition events)
+{
+  poll_fd_.set_events(poll_fd_.get_events() | events);
+  get_context()->wakeup();
+}
+
+void SerialPort::disable_events(Glib::IOCondition events)
+{
+  poll_fd_.set_events(poll_fd_.get_events() & ~events);
+  get_context()->wakeup();
+}
+
+std::string::size_type SerialPort::write_bytes(const std::string& sequence)
+{
+  const ssize_t rc = write(poll_fd_.get_fd(), sequence.data(), sequence.size());
+
+  if (rc >= 0)
+    return rc;
+
+  check_file_error();
+  return 0;
+}
+
+void SerialPort::discard()
+{
+  if (tcflush(poll_fd_.get_fd(), TCOFLUSH) < 0)
+    throw_file_error(errno);
+}
+
+void SerialPort::close()
 {
   const int fd = poll_fd_.get_fd();
 
@@ -161,94 +143,145 @@ int PortSource::close()
 
     while (::close(fd) < 0)
     {
-      const int err_no = errno;
-
-      if (err_no != EINTR)
-        return err_no;
+      if (errno != EINTR)
+        throw_file_error(errno);
     }
-
     poll_fd_.set_fd(-1);
     poll_fd_.set_revents(Glib::IOCondition());
   }
-
-  return 0;
 }
 
-void PortSource::enable_events(Glib::IOCondition events)
+Glib::ustring SerialPort::display_portname() const
 {
-  poll_fd_.set_events(poll_fd_.get_events() | events);
-  get_context()->wakeup();
+  return Glib::filename_display_name(portname_);
 }
 
-void PortSource::disable_events(Glib::IOCondition events)
+void SerialPort::check_file_error()
 {
-  poll_fd_.set_events(poll_fd_.get_events() & ~events);
-  get_context()->wakeup();
+  const int err_no = errno;
+
+  switch (err_no)
+  {
+    case EINTR:
+    case EAGAIN:
+#if defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
+    case EWOULDBLOCK:
+#endif
+      break;
+
+    default:
+      throw_file_error(err_no);
+  }
 }
 
-PortSource::PortSource(int fd)
-:
-  poll_fd_ (fd, Glib::IO_IN)
+void SerialPort::throw_file_error(int err_no)
 {
-  add_poll(poll_fd_);
+  throw Glib::FileError(Glib::FileError::Code(g_file_error_from_errno(err_no)),
+                        Glib::ustring::compose("\"%1\": %2",
+                                               Glib::filename_display_name(portname_),
+                                               Glib::strerror(err_no)));
 }
 
-PortSource::~PortSource()
-{}
-
-bool PortSource::prepare(int& timeout)
+/*
+ * Get the current time in milliseconds since 1970.  Y287K-unsafe.
+ */
+long long SerialPort::get_current_time()
 {
-  timeout = -1;
-  return false;
+  Glib::TimeVal now;
+  Glib::Source::get_current_time(now);
+  return 1000LL * now.tv_sec + now.tv_usec / 1000;
 }
 
-bool PortSource::check()
+bool SerialPort::prepare(int& timeout)
 {
-  return ((poll_fd_.get_revents() & poll_fd_.get_events()) != 0);
+  if (inpos_ < inlen_)
+    return true;
+
+  if (remaining_ > 0)
+  {
+    const long long now  = get_current_time();
+    const long long diff = expiration_ - now;
+
+    if (diff < 0)
+      remaining_ = 0;
+    else if (diff <= remaining_)
+      remaining_ = diff;
+    else // system time changed backwards
+      expiration_ = now + remaining_;
+  }
+
+  timeout = remaining_;
+  return (timeout == 0);
 }
 
-bool PortSource::dispatch(sigc::slot_base* slot)
+bool SerialPort::check()
 {
-  (*static_cast<sigc::slot<void, Glib::IOCondition>*>(slot))(poll_fd_.get_revents());
+  if (inpos_ < inlen_ || (poll_fd_.get_revents() & poll_fd_.get_events()) != 0)
+    return true;
+
+  if (remaining_ > 0 && get_current_time() >= expiration_)
+    remaining_ = 0;
+
+  return (remaining_ == 0);
+}
+
+bool SerialPort::dispatch(sigc::slot_base* slot)
+{
+  Glib::IOCondition events = poll_fd_.get_revents();
+
+  if (inpos_ < inlen_)
+    events |= Glib::IO_IN;
+
+  if ((events & ~Glib::IO_IN) == 0 && remaining_ == 0)
+    remaining_ = -1;
+
+  (*static_cast<sigc::slot<void, Glib::IOCondition>*>(slot))(events);
+
   return true;
 }
 
-SerialPort::SerialPort(const std::string& portname)
-:
-  portname_ (portname),
-  port_     (PortSource::create(open(portname_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK)))
+void SerialPort::setup_interface()
 {
-  if (port_->get_fd() < 0)
-    throw_file_error(portname_, errno);
+  const int flags = fcntl(poll_fd_.get_fd(), F_GETFD, 0);
 
-  init_serial_port(port_->get_fd(), portname_);
-}
+  if (flags < 0 || fcntl(poll_fd_.get_fd(), F_SETFD, flags | FD_CLOEXEC) < 0)
+    throw_file_error(errno);
 
-SerialPort::~SerialPort()
-{
-  io_handler_.disconnect();
-}
+  struct termios portattr;
 
-void SerialPort::close()
-{
-  if (const int err_no = port_->close())
-    throw_file_error(portname_, err_no);
-}
+  if (tcgetattr(poll_fd_.get_fd(), &portattr) < 0)
+    throw_file_error(errno);
 
-void SerialPort::set_io_handler(const sigc::slot<void, Glib::IOCondition>& slot)
-{
-  // FIXME: disconnect old one?
-  io_handler_ = port_->connect(slot);
-}
+  portattr.c_iflag &= ~(BRKINT | IGNCR | PARMRK | INPCK | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
+  portattr.c_iflag |= IGNBRK | IGNPAR;
 
-void SerialPort::enable_events(Glib::IOCondition events)
-{
-  port_->enable_events(events);
-}
+  portattr.c_oflag &= ~(OPOST | OCRNL | OFILL);
 
-void SerialPort::disable_events(Glib::IOCondition events)
-{
-  port_->disable_events(events);
+  portattr.c_cflag &= ~(CSIZE | CSTOPB | PARENB);
+  portattr.c_cflag |= CREAD | CS8 | HUPCL | CLOCAL | CRTSCTS; // not in POSIX
+
+  portattr.c_lflag &= ~(ICANON | IEXTEN | ISIG | ECHO | TOSTOP);
+
+  portattr.c_cc[VMIN]  = 1;
+  portattr.c_cc[VTIME] = 0;
+
+  enum { BAUDRATE_KEYBOARD = B1200 };
+
+  cfsetispeed(&portattr, BAUDRATE_KEYBOARD);
+  cfsetospeed(&portattr, BAUDRATE_KEYBOARD);
+
+  if (tcsetattr(poll_fd_.get_fd(), TCSAFLUSH, &portattr) < 0
+      || tcgetattr(poll_fd_.get_fd(), &portattr) < 0)
+    throw_file_error(errno);
+
+  if ((portattr.c_cflag & (CSIZE | CSTOPB | PARENB | CRTSCTS)) != (CS8 | CRTSCTS)
+      || cfgetispeed(&portattr) != BAUDRATE_KEYBOARD
+      || cfgetospeed(&portattr) != BAUDRATE_KEYBOARD)
+  {
+    throw Glib::FileError(Glib::FileError::NO_SUCH_DEVICE,
+                          Glib::ustring::compose("\"%1\": serial port configuration not supported",
+                                                 Glib::filename_display_name(portname_)));
+  }
 }
 
 } // namespace KC

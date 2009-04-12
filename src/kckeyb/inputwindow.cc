@@ -19,13 +19,17 @@
 
 #include <config.h>
 #include "inputwindow.h"
+#include <libkc.h>
 #include <glibmm.h>
 #include <gtkmm/accelgroup.h>
+#include <gtkmm/main.h>
 #include <algorithm>
 #include <functional>
 #include <iterator>
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
+#include <gtk/gtk.h>
+#include <gtkhotkey.h>
 
 namespace
 {
@@ -44,15 +48,15 @@ public:
 
 KC::MappedKey LookupMappedKey::operator()(const Glib::ustring& keyname) const
 {
-  KC::MappedKey mapping (Glib::strcompress(keyfile_.get_string(group_, keyname)));
+  KC::MappedKey mapping (Glib::strcompress(keyfile_.get_locale_string(group_, keyname)));
   Gtk::AccelGroup::parse(keyname, mapping.keyval, mapping.state);
   return mapping;
 }
 
-struct MappedKeyLess : std::binary_function<bool, KC::MappedKey, KC::MappedKey>
+struct MappedKeyEqual : public std::binary_function<bool, KC::MappedKey, KC::MappedKey>
 {
   bool operator()(const KC::MappedKey& a, const KC::MappedKey& b) const
-    { return (a.keyval < b.keyval || (a.keyval == b.keyval && a.state < b.state)); }
+    { return (a.keyval == b.keyval && a.state == b.state); }
 };
 
 } // anonymous namespace
@@ -60,40 +64,58 @@ struct MappedKeyLess : std::binary_function<bool, KC::MappedKey, KC::MappedKey>
 namespace KC
 {
 
-InputWindow::InputWindow()
+void swap(MappedKey& a, MappedKey& b)
+{
+  std::swap(a.keyval, b.keyval);
+  std::swap(a.state, b.state);
+  a.sequence.swap(b.sequence);
+}
+
+InputWindow::InputWindow(Controller& controller)
 :
-  Gtk::Window(Gtk::WINDOW_POPUP),
-  keymaps_ (KEYBOARD_COUNT),
-  kbdmode_ (KEYBOARD_CPM)
+  Gtk::Window (Gtk::WINDOW_POPUP),
+  controller_ (controller),
+  keymaps_    (KEYBOARD_COUNT),
+  hotkey_     (),
+  hotkey_val_ (GDK_VoidSymbol),
+  hotkey_mod_ ()
 {
   add_events(Gdk::BUTTON_PRESS_MASK | Gdk::KEY_PRESS_MASK | Gdk::KEY_RELEASE_MASK);
   set_keep_above(true);
   set_position(Gtk::WIN_POS_CENTER);
-
   read_keymap_config();
 }
 
 InputWindow::~InputWindow()
 {}
 
-void InputWindow::set_keyboard_mode(KeyboardMode mode)
+bool InputWindow::on_button_press_event(GdkEventButton* event)
 {
-  kbdmode_ = mode;
-}
-
-bool InputWindow::on_button_press_event(GdkEventButton*)
-{
-  hide();
-  return true; // handled
+  if (event->type == GDK_2BUTTON_PRESS && event->button == 1)
+  {
+    Gtk::Main::quit();
+    return true; // handled
+  }
+  return Gtk::Window::on_button_press_event(event);
 }
 
 bool InputWindow::on_key_press_event(GdkEventKey* event)
 {
-  const std::string kcseq = translate_keyval(event->keyval, Gdk::ModifierType(event->state));
+  const Gdk::ModifierType state = Gdk::ModifierType(event->state);
 
+  if (event->keyval == hotkey_val_
+      && (state & Gtk::AccelGroup::get_default_mod_mask()) == hotkey_mod_)
+  {
+    hide();
+    return true; // handled
+  }
+
+  const std::string kcseq = (controller_.get_mode() == KEYBOARD_RAW)
+                            ? translate_scancode(event->hardware_keycode)
+                            : translate_keyval(event->keyval, state);
   if (!kcseq.empty())
   {
-    if (!signal_translated_key_.emit(kcseq))
+    if (!controller_.send_codes(kcseq))
       get_display()->beep();
 
     return true; // handled
@@ -103,12 +125,23 @@ bool InputWindow::on_key_press_event(GdkEventKey* event)
 
 bool InputWindow::on_key_release_event(GdkEventKey* event)
 {
+  if (controller_.get_mode() == KEYBOARD_RAW)
+  {
+    const std::string scancode = translate_scancode(event->hardware_keycode);
+
+    if (!scancode.empty())
+    {
+      controller_.send_break(scancode);
+      return true; // handled
+    }
+  }
   return Gtk::Window::on_key_release_event(event);
 }
 
 bool InputWindow::on_map_event(GdkEventAny* event)
 {
-  gdk_keyboard_grab(get_window()->gobj(), FALSE, GDK_CURRENT_TIME);
+  gdk_keyboard_grab(Glib::unwrap(get_window()), FALSE, GDK_CURRENT_TIME);
+
   return Gtk::Window::on_map_event(event);
 }
 
@@ -119,72 +152,108 @@ void InputWindow::read_keymap_config()
   Glib::KeyFile keyfile;
   keyfile.load_from_file("ui/keymap.conf");
 
-  static const char *const sections[KEYBOARD_COUNT] = { 0, "CAOS", "CPM", "TPKC" };
+  bind_hotkey(keyfile.get_locale_string("global", "hotkey"));
 
-  for (int i = KEYBOARD_CAOS; i < KEYBOARD_COUNT; ++i)
-  {
-    const Glib::ustring group = sections[i];
-    KeyMap keymap;
+  static const char sections[KEYBOARD_COUNT][8] = { "raw", "caos", "cpm", "tpkc" };
 
-    if (i > KEYBOARD_CPM)
-      keymap = keymaps_[KEYBOARD_CPM];
-
+  for (unsigned int i = KEYBOARD_RAW; i < KEYBOARD_COUNT; ++i)
     try
     {
+      const Glib::ustring group = sections[i];
       const std::vector<Glib::ustring> keys = keyfile.get_keys(group);
 
-      std::transform(keys.begin(), keys.end(), std::back_inserter(keymap),
+      KeyMap keymap;
+      std::transform(keys.begin(), keys.end(), std::inserter(keymap, keymap.end()),
                      LookupMappedKey(keyfile, group));
-
-      std::sort(keymap.begin(), keymap.end(), MappedKeyLess());
+      keymaps_[i].swap(keymap);
     }
     catch (const Glib::KeyFileError& error)
     {
       const Glib::ustring message = error.what();
       g_warning("%s", message.c_str());
     }
+}
 
-    keymaps_[i].swap(keymap);
+void InputWindow::bind_hotkey(const Glib::ustring& signature)
+{
+  GError* error = 0;
+
+  if (hotkey_)
+  {
+    if (gtk_hotkey_info_is_bound(hotkey_.get()) // racy...
+        && !gtk_hotkey_info_unbind(hotkey_.get(), &error))
+      throw Glib::Error(error);
+
+    HotkeyInfoPtr().swap(hotkey_);
   }
+  Gtk::AccelGroup::parse(signature, hotkey_val_, hotkey_mod_);
+
+  HotkeyInfoPtr hotkey (gtk_hotkey_info_new("kckeyb", "toggle-grab", signature.c_str(), 0));
+  g_return_if_fail(hotkey);
+
+  if (!gtk_hotkey_info_bind(hotkey.get(), &error))
+    throw Glib::Error(error);
+
+  g_signal_connect_swapped(hotkey.get(), "activated",
+                           G_CALLBACK(&gtk_window_present_with_time), gobj());
+  hotkey.swap(hotkey_);
+}
+
+std::string InputWindow::translate_scancode(unsigned int keycode)
+{
+  GdkDisplay *const display = gtk_widget_get_display(Gtk::Widget::gobj());
+  unsigned int keyval = GDK_VoidSymbol;
+
+  gdk_keymap_translate_keyboard_state(gdk_keymap_get_for_display(display),
+                                      keycode, GdkModifierType(0), 0, &keyval, 0, 0, 0);
+
+  g_assert(KEYBOARD_RAW < keymaps_.size());
+
+  const KeyMap& keymap = keymaps_[KEYBOARD_RAW];
+  const KeyMap::const_iterator pos = keymap.find(MappedKey(keyval, Gdk::ModifierType()));
+
+  if (pos != keymap.end())
+    return pos->sequence;
+
+  return std::string();
 }
 
 std::string InputWindow::translate_keyval(unsigned int keyval, Gdk::ModifierType state) const
 {
-  unsigned int lowup[2] = { keyval, keyval };
-  gdk_keyval_convert_case(keyval, &lowup[0], &lowup[1]);
+  unsigned int lower = keyval;
+  unsigned int upper = keyval;
 
-  if (lowup[0] != lowup[1] && (state & Gdk::LOCK_MASK) != 0)
+  gdk_keyval_convert_case(keyval, &lower, &upper);
+
+  if (lower != upper && (state & Gdk::LOCK_MASK) != 0)
     state ^= Gdk::LOCK_MASK | Gdk::SHIFT_MASK;
 
   state &= Gtk::AccelGroup::get_default_mod_mask();
 
-  g_assert(unsigned(kbdmode_) < keymaps_.size());
-
-  const KeyMap& keymap = keymaps_[kbdmode_];
-  const KeyMap::const_iterator pos = std::lower_bound(keymap.begin(), keymap.end(),
-                                                      MappedKey(lowup[0], state),
-                                                      MappedKeyLess());
-  if (pos != keymap.end() && pos->keyval == keyval && pos->state == state)
-    return pos->sequence;
-
-  if ((state & ~Gdk::SHIFT_MASK) == Gdk::CONTROL_MASK)
+  unsigned int mode = controller_.get_mode();
+  g_assert(mode < keymaps_.size());
+  do
   {
-    const unsigned int uc = gdk_keyval_to_unicode(lowup[1]);
+    const KeyMap& keymap = keymaps_[mode];
+    const KeyMap::const_iterator pos = keymap.find(MappedKey(lower, state));
+
+    if (pos != keymap.end())
+      return pos->sequence;
+  }
+  while (mode-- == KEYBOARD_TPKC);
+
+  if ((state & ~Gdk::SHIFT_MASK) == 0)
+  {
+    if (const unsigned int uc = gdk_keyval_to_unicode((state == 0) ? upper : lower))
+      if (const unsigned char kc = kc_from_wide_char(uc))
+        return std::string(1u, char(kc));
+  }
+  else if ((state & ~Gdk::SHIFT_MASK) == Gdk::CONTROL_MASK)
+  {
+    const unsigned int uc = gdk_keyval_to_unicode(upper);
 
     if ((uc > 0 && uc <= 0x1F) || (uc >= 0x40 && uc <= 0x5F))
       return std::string(1u, char(uc & 0x1F));
-  }
-  else if ((state & ~Gdk::SHIFT_MASK) == 0)
-  {
-    if (const unsigned int uc = gdk_keyval_to_unicode(lowup[(state & Gdk::SHIFT_MASK) == 0]))
-      try
-      {
-        return Glib::convert(Glib::ustring(1, uc).raw(),
-                             (kbdmode_ == KEYBOARD_CAOS) ? "ISO646-DE" : "CP437",
-                             "UTF-8");
-      }
-      catch (const Glib::ConvertError&)
-      {}
   }
 
   return std::string();

@@ -23,8 +23,10 @@
 #include "serialport.h"
 #include <sigc++/sigc++.h>
 #include <glibmm.h>
-#include <queue>
+#include <bitset>
+#include <deque>
 #include <string>
+#include <vector>
 
 namespace KC
 {
@@ -44,19 +46,41 @@ public:
   explicit Controller(const std::string& portname);
   virtual ~Controller();
 
-  sigc::signal<void, KeyboardMode>& signal_mode_switch() { return signal_mode_switch_; }
+  void set_mode(KeyboardMode mode);
+  KeyboardMode get_mode() const { return mode_; }
 
-  bool send_key_sequence(const std::string& sequence);
+  bool send_codes(const std::string& sequence);
+  bool send_break(const std::string& sequence);
+
+  void reset();
   void shutdown();
 
 private:
-  typedef std::queue<std::string> OutputQueue;
+  enum State
+  {
+    STATE_IDLE,
+    STATE_EXPECT_COMMAND,
+    STATE_PROCESS_COMMAND
+  };
+  typedef std::deque<std::string> OutputQueue;
+  typedef State (Controller::* CommandHandler)(unsigned char);
 
-  OutputQueue outbox_;
-  SerialPort  port_;
-  sigc::signal<void, KeyboardMode> signal_mode_switch_;
+  OutputQueue                outbox_;
+  Glib::RefPtr<SerialPort>   port_;
+  std::vector<unsigned char> command_buffer_;
+  CommandHandler             command_handler_;
+  State                      state_;
+  KeyboardMode               mode_;
+  std::bitset<256>           break_disabled_;
 
-  void on_serial_io(Glib::IOCondition condition);
+  void on_io_event(Glib::IOCondition condition);
+  void on_command(unsigned int word);
+
+  State command_program_keys(unsigned char byte);
+  State command_type_rate(unsigned char byte);
+  State command_configure_all(unsigned char byte);
+  State command_configure_key(unsigned char byte);
+  State command_switch_leds(unsigned char byte);
 };
 
 } // namespace KC

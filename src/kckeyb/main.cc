@@ -96,14 +96,9 @@ int main(int argc, char** argv)
 
     KC::Controller controller (options->portname());
     options.reset();
-    KC::InputWindow window;
+    KC::InputWindow window (controller);
 
-    controller.signal_mode_switch()
-      .connect(sigc::mem_fun(window, &KC::InputWindow::set_keyboard_mode));
-    window.signal_translated_key()
-      .connect(sigc::mem_fun(controller, &KC::Controller::send_key_sequence));
-
-    Gtk::Main::run(window);
+    Gtk::Main::run();
 
     controller.shutdown();
     return 0;
