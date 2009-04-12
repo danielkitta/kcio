@@ -43,22 +43,23 @@ AC_SUBST([GETTEXT_PACKAGE], [kcmill])
 AM_GLIB_GNU_GETTEXT()
 
 DK_MODULE_CURSES()
+PKG_CHECK_MODULES([KCALL_MODULES],  [alsa >= 1.0 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
 PKG_CHECK_MODULES([KCMILL_MODULES], [alsa >= 1.0 gtkmm-2.4 >= 2.12])
-PKG_CHECK_MODULES([KCKEYB_MODULES], [gtkmm-2.4 >= 2.12])
-PKG_CHECK_MODULES([KCREC_MODULES], [alsa >= 1.0])
+PKG_CHECK_MODULES([KCKEYB_MODULES], [gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
+PKG_CHECK_MODULES([KCREC_MODULES],  [alsa >= 1.0])
 DK_PKG_PATH_PROG([GTK_UPDATE_ICON_CACHE], [gtk+-2.0], [gtk-update-icon-cache])
 
 AC_TYPE_SSIZE_T()
 AC_TYPE_INT16_T()
 AC_TYPE_UINT8_T()
 
-DK_ARG_ENABLE_WARNINGS([LIBKC_WFLAGS],
+DK_ARG_ENABLE_WARNINGS([KCALL_WFLAGS],
                        [-Wall],
-                       [-pedantic -Wall -Wextra])
+                       [-Wall -Wextra])
 AC_LANG([C++])
-DK_ARG_ENABLE_WARNINGS([KCMILL_WXXFLAGS],
+DK_ARG_ENABLE_WARNINGS([KCALL_WXXFLAGS],
                        [-Wall],
-                       [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra],
+                       [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra -Wno-long-long],
                        [LIBSIGC PANGO G GDK GDK_PIXBUF GLIBMM GDKMM GTKMM])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])

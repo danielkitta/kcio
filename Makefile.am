@@ -61,9 +61,9 @@ src_kcmill_SOURCES =	\
 kclocaledir = $(prefix)/$(DATADIRNAME)/locale
 global_defs = -DKCMILL_LOCALEDIR=\""$(kclocaledir)"\" -DKCMILL_PKGDATADIR=\""$(pkgdatadir)"\"
 kc_includes = -I$(top_srcdir)/src/libkc -I$(top_builddir)
-AM_CPPFLAGS = $(global_defs) $(kc_includes) $(CURSES_CFLAGS) $(KCMILL_MODULES_CFLAGS)
-AM_CFLAGS   = $(LIBKC_WFLAGS)
-AM_CXXFLAGS = $(KCMILL_WXXFLAGS)
+AM_CPPFLAGS = $(global_defs) $(kc_includes) $(CURSES_CFLAGS) $(KCALL_MODULES_CFLAGS)
+AM_CFLAGS   = $(KCALL_WFLAGS)
+AM_CXXFLAGS = $(KCALL_WXXFLAGS)
 
 src_cli_kcplay_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
 src_cli_kcrec_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
