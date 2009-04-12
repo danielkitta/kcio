@@ -206,8 +206,7 @@ std::string InputWindow::translate_scancode(unsigned int keycode)
 
   gdk_keymap_translate_keyboard_state(gdk_keymap_get_for_display(display),
                                       keycode, GdkModifierType(0), 0, &keyval, 0, 0, 0);
-
-  g_assert(KEYBOARD_RAW < keymaps_.size());
+  g_assert(!keymaps_.empty());
 
   const KeyMap& keymap = keymaps_[KEYBOARD_RAW];
   const KeyMap::const_iterator pos = keymap.find(MappedKey(keyval, Gdk::ModifierType()));
