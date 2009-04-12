@@ -176,6 +176,7 @@ read_frame(void)
 static unsigned int
 read_edge(void)
 {
+  unsigned int rate  = samplerate;
   unsigned int phase = 0;
   int neg;
   do
@@ -183,10 +184,10 @@ read_edge(void)
     neg = (read_frame() < 0);
     phase += 600;
   }
-  while (neg == neglevel && phase < samplerate);
+  while (neg == neglevel && phase < rate);
   neglevel = neg;
 
-  return BIT_0 << ((4 * phase + samplerate / 4) / samplerate);
+  return BIT_0 << ((4 * phase + rate / 4) / rate);
 }
 
 static void
@@ -224,7 +225,7 @@ read_byte(void)
       fprintf(stderr, "Analog signal decoding error\n");
       exit(1);
     }
-    byte |= (bit - BIT_0) << i;
+    byte = ((bit & BIT_1) << 6) | (byte >> 1);
   }
 
   /* The last oscillation at the end of every block is missing
