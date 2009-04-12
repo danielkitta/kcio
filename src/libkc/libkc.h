@@ -18,16 +18,13 @@
 #ifndef LIBKC_LIBKC_H_INCLUDED
 #define LIBKC_LIBKC_H_INCLUDED
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <glib.h>
 
-unsigned int kc_to_wide_char(unsigned int kc);
-unsigned int kc_from_wide_char(unsigned int wc);
+G_BEGIN_DECLS
 
-#ifdef __cplusplus
-}
-#endif
+unsigned int  kc_to_wide_char(unsigned char kc)  G_GNUC_CONST;
+unsigned char kc_from_wide_char(unsigned int wc) G_GNUC_CONST;
+
+G_END_DECLS
 
 #endif /* !LIBKC_LIBKC_H_INCLUDED */
