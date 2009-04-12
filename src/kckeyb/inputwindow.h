@@ -22,6 +22,7 @@
 
 #include "controller.h"
 #include <gdkmm.h>
+#include <gtkmm/statusicon.h>
 #include <gtkmm/window.h>
 #include <algorithm>
 #include <functional>
@@ -94,16 +95,18 @@ protected:
 private:
   typedef std::set<MappedKey, MappedKey::SortPredicate> KeyMap;
 
-  Controller&         controller_;
-  std::vector<KeyMap> keymaps_;
-  HotkeyInfoPtr       hotkey_;
-  unsigned int        hotkey_val_;
-  Gdk::ModifierType   hotkey_mod_;
+  Controller&                   controller_;
+  std::vector<KeyMap>           keymaps_;
+  Glib::RefPtr<Gtk::StatusIcon> status_icon_;
+  HotkeyInfoPtr                 hotkey_;
+  unsigned int                  hotkey_val_;
+  Gdk::ModifierType             hotkey_mod_;
 
   void read_keymap_config();
   void bind_hotkey(const Glib::ustring& signature);
   std::string translate_scancode(unsigned int keycode);
   std::string translate_keyval(unsigned int keyval, Gdk::ModifierType state) const;
+  void on_status_icon_activate();
 };
 
 } // namespace KC

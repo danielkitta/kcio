@@ -73,16 +73,21 @@ void swap(MappedKey& a, MappedKey& b)
 
 InputWindow::InputWindow(Controller& controller)
 :
-  Gtk::Window (Gtk::WINDOW_POPUP),
-  controller_ (controller),
-  keymaps_    (KEYBOARD_COUNT),
-  hotkey_     (),
-  hotkey_val_ (GDK_VoidSymbol),
-  hotkey_mod_ ()
+  Gtk::Window  (Gtk::WINDOW_POPUP),
+  controller_  (controller),
+  keymaps_     (KEYBOARD_COUNT),
+  status_icon_ (Gtk::StatusIcon::create("kcmill")),
+  hotkey_      (),
+  hotkey_val_  (GDK_VoidSymbol),
+  hotkey_mod_  ()
 {
   add_events(Gdk::BUTTON_PRESS_MASK | Gdk::KEY_PRESS_MASK | Gdk::KEY_RELEASE_MASK);
   set_keep_above(true);
   set_position(Gtk::WIN_POS_CENTER);
+
+  status_icon_->set_tooltip("KC-Keyboard");
+  status_icon_->signal_activate().connect(sigc::mem_fun(*this, &InputWindow::on_status_icon_activate));
+
   read_keymap_config();
 }
 
@@ -256,6 +261,14 @@ std::string InputWindow::translate_keyval(unsigned int keyval, Gdk::ModifierType
   }
 
   return std::string();
+}
+
+void InputWindow::on_status_icon_activate()
+{
+  if (is_mapped())
+    hide();
+  else
+    show();
 }
 
 } // namespace KC
