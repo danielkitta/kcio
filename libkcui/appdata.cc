@@ -33,6 +33,6 @@ std::string Util::locate_data_file(const std::string& basename)
   }
   return basename;
 #else
-  return Glib::build_filename(KCMILL_PKGDATADIR, basename);
+  return Glib::build_filename(KCIO_PKGDATADIR, basename);
 #endif
 }

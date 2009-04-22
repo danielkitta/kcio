@@ -3,7 +3,7 @@
 <!--Generated with glade3 3.4.5 on Tue Nov 11 06:00:10 2008 -->
 <glade-interface>
   <widget class="GtkWindow" id="main_window">
-    <property name="title" translatable="yes">KC-Mill</property>
+    <property name="title" translatable="yes">KC-Control</property>
     <child>
       <widget class="GtkVBox" id="main_vbox">
         <property name="visible">True</property>

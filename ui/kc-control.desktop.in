@@ -1,9 +1,9 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-_Name=KC-Mill
+_Name=KC-Control
 _Comment=Control and exchange data with a KC 85 computer
-Exec=kcmill
-Icon=kcmill
+Exec=kc-control
+Icon=kc-control
 StartupNotify=true
 Categories=GTK;System;

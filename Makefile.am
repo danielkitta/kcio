@@ -1,13 +1,13 @@
 ## Copyright (c) 2008-2009  Daniel Elstner <daniel.kitta@gmail.com>
 ##
-## This file is part of KC-Mill.
+## This file is part of KC-IO.
 ##
-## KC-Mill is free software: you can redistribute it and/or modify it
+## KC-IO is free software: you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by the
 ## Free Software Foundation, either version 3 of the License, or
 ## (at your option) any later version.
 ##
-## KC-Mill is distributed in the hope that it will be useful, but
+## KC-IO is distributed in the hope that it will be useful, but
 ## WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ## See the GNU General Public License for more details.
@@ -26,55 +26,54 @@ DISTCHECK_CONFIGURE_FLAGS = --enable-warnings=fatal
 
 SUBDIRS = po
 
-noinst_LIBRARIES = src/libkc/libkc.a src/libkc/libkcui.a
+noinst_LIBRARIES = libkc/libkc.a libkc/libkcui.a
 
-src_libkc_libkc_a_SOURCES =	\
-	src/libkc/charset.c	\
-	src/libkc/libkc.h
+libkc_libkc_a_SOURCES =	\
+	libkc/charset.c	\
+	libkc/libkc.h
 
-src_libkc_libkcui_a_SOURCES =	\
-	src/libkc/appdata.cc	\
-	src/libkc/libkcui.h
+libkcui_libkcui_a_SOURCES =	\
+	libkcui/appdata.cc	\
+	libkcui/libkcui.h
 
 bin_PROGRAMS =			\
-	src/cli/kcplay		\
-	src/cli/kcrec		\
-	src/cli/kcsend		\
-	src/cli/kcterm		\
-	src/kckeyb/kckeyb	\
-	src/kcmill
+	cli/kcplay		\
+	cli/kcrec		\
+	cli/kcsend		\
+	cli/kcterm		\
+	kc-control/kc-control	\
+	kc-keyboard/kc-keyboard
 
-src_cli_kcplay_SOURCES = src/cli/kcplay.c
-src_cli_kcrec_SOURCES  = src/cli/kcrec.c
-src_cli_kcsend_SOURCES = src/cli/kcsend.c
-src_cli_kcterm_SOURCES = src/cli/kcterm.c
+cli_kcplay_SOURCES = cli/kcplay.c
+cli_kcrec_SOURCES  = cli/kcrec.c
+cli_kcsend_SOURCES = cli/kcsend.c
+cli_kcterm_SOURCES = cli/kcterm.c
 
-src_kckeyb_kckeyb_SOURCES =		\
-	src/kckeyb/controller.cc	\
-	src/kckeyb/controller.h		\
-	src/kckeyb/inputwindow.cc	\
-	src/kckeyb/inputwindow.h	\
-	src/kckeyb/main.cc		\
-	src/kckeyb/serialport.cc	\
-	src/kckeyb/serialport.h
+kc_keyboard_kc_keyboard_SOURCES =	\
+	kc-keyboard/controller.cc	\
+	kc-keyboard/controller.h	\
+	kc-keyboard/inputwindow.cc	\
+	kc-keyboard/inputwindow.h	\
+	kc-keyboard/main.cc		\
+	kc-keyboard/serialport.cc	\
+	kc-keyboard/serialport.h
 
-src_kcmill_SOURCES =	\
-	src/main.cc
+kc_control_kc_control_SOURCES =	\
+	kc-control/main.cc
 
 # The location of the gettext catalogs as defined by intltool.
 kclocaledir = $(prefix)/$(DATADIRNAME)/locale
-global_defs = -DKCMILL_LOCALEDIR=\""$(kclocaledir)"\" -DKCMILL_PKGDATADIR=\""$(pkgdatadir)"\"
-kc_includes = -I$(top_builddir)/src/libkc -I$(top_srcdir)/src/libkc -I$(top_builddir)
-AM_CPPFLAGS = $(global_defs) $(kc_includes) $(CURSES_CFLAGS) $(KCALL_MODULES_CFLAGS)
-AM_CFLAGS   = $(KCALL_WFLAGS)
-AM_CXXFLAGS = $(KCALL_WXXFLAGS)
+global_defs = -DKCIO_LOCALEDIR=\""$(kclocaledir)"\" -DKCIO_PKGDATADIR=\""$(pkgdatadir)"\"
+AM_CPPFLAGS = $(global_defs) $(CURSES_CFLAGS) $(KCIO_MODULES_CFLAGS)
+AM_CFLAGS   = $(KCIO_WFLAGS)
+AM_CXXFLAGS = $(KCIO_WXXFLAGS)
 
-src_cli_kcplay_LDADD	= src/libkc/libkc.a $(KCREC_MODULES_LIBS)
-src_cli_kcrec_LDADD	= src/libkc/libkc.a $(KCREC_MODULES_LIBS)
-src_cli_kcsend_LDADD	= src/libkc/libkc.a
-src_cli_kcterm_LDADD	= src/libkc/libkc.a $(CURSES_LIBS)
-src_kckeyb_kckeyb_LDADD	= src/libkc/libkc.a src/libkc/libkcui.a $(KCKEYB_MODULES_LIBS) $(INTLLIBS)
-src_kcmill_LDADD	= src/libkc/libkc.a src/libkc/libkcui.a $(KCMILL_MODULES_LIBS) $(INTLLIBS)
+cli_kcplay_LDADD		= libkc/libkc.a $(KCREC_MODULES_LIBS)
+cli_kcrec_LDADD			= libkc/libkc.a $(KCREC_MODULES_LIBS)
+cli_kcsend_LDADD		= libkc/libkc.a
+cli_kcterm_LDADD		= libkc/libkc.a $(CURSES_LIBS)
+kc_control_kc_control_LDADD	= libkc/libkc.a libkcui/libkcui.a $(KC_CONTROL_MODULES_LIBS) $(INTLLIBS)
+kc_keyboard_kc_keyboard_LDADD	= libkc/libkc.a libkcui/libkcui.a $(KC_KEYBOARD_MODULES_LIBS) $(INTLLIBS)
 
 iconthemedir = $(datadir)/icons/hicolor
 appicon16dir = $(iconthemedir)/16x16/apps
@@ -84,16 +83,16 @@ appicon32dir = $(iconthemedir)/32x32/apps
 appicon48dir = $(iconthemedir)/48x48/apps
 appiconsvdir = $(iconthemedir)/scalable/apps
 
-dist_appicon16_DATA = ui/16x16/kckeyb.png ui/16x16/kcmill.png
-dist_appicon22_DATA = ui/22x22/kckeyb.png ui/22x22/kcmill.png
-dist_appicon24_DATA = ui/24x24/kckeyb.png ui/24x24/kcmill.png
-dist_appicon32_DATA = ui/32x32/kckeyb.png ui/32x32/kcmill.png
-dist_appicon48_DATA = ui/48x48/kckeyb.png ui/48x48/kcmill.png
-dist_appiconsv_DATA = ui/scalable/kckeyb.svg ui/scalable/kcmill.svg
+dist_appicon16_DATA = ui/16x16/kc-keyboard.png ui/16x16/kc-control.png
+dist_appicon22_DATA = ui/22x22/kc-keyboard.png ui/22x22/kc-control.png
+dist_appicon24_DATA = ui/24x24/kc-keyboard.png ui/24x24/kc-control.png
+dist_appicon32_DATA = ui/32x32/kc-keyboard.png ui/32x32/kc-control.png
+dist_appicon48_DATA = ui/48x48/kc-keyboard.png ui/48x48/kc-control.png
+dist_appiconsv_DATA = ui/scalable/kc-keyboard.svg ui/scalable/kc-control.svg
 
-desktop_in_files    = ui/kckeyb.desktop.in ui/kcmill.desktop.in
+desktop_in_files    = ui/kc-keyboard.desktop.in ui/kc-control.desktop.in
 desktopdir          = $(datadir)/applications
-desktop_DATA        = ui/kckeyb.desktop ui/kcmill.desktop
+desktop_DATA        = ui/kc-keyboard.desktop ui/kc-control.desktop
 
 dist_pkgdata_DATA   = ui/keymap.conf ui/enter-key.svg ui/keyboard-logo.svg
 

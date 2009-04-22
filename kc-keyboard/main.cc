@@ -1,14 +1,14 @@
 /*
  * Copyright (c) 2009  Daniel Elstner <daniel.kitta@gmail.com>
  *
- * This file is part of KC-Mill.
+ * This file is part of KC-IO.
  *
- * KC-Mill is free software: you can redistribute it and/or modify it
+ * KC-IO is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * KC-Mill is distributed in the hope that it will be useful, but
+ * KC-IO is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
@@ -51,7 +51,7 @@ public:
 CmdlineOptions::CmdlineOptions()
 :
   filenames_ (1, std::string("/dev/ttyS0")),
-  group_     ("kckeyb", "KC-Keyboard"),
+  group_     ("kc-keyboard", "KC-Keyboard"),
   context_   ()
 {
   Glib::OptionEntry entry;
@@ -77,7 +77,7 @@ static void init_locale()
   {
     g_warning("Locale: %s", ex.what());
   }
-  bindtextdomain(PACKAGE_TARNAME, KCMILL_LOCALEDIR);
+  bindtextdomain(PACKAGE_TARNAME, KCIO_LOCALEDIR);
 #if HAVE_BIND_TEXTDOMAIN_CODESET
   bind_textdomain_codeset(PACKAGE_TARNAME, "UTF-8");
 #endif
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
     rsvg_init();
 
     Glib::set_application_name("KC-Keyboard");
-    Gtk::Window::set_default_icon_name("kckeyb");
+    Gtk::Window::set_default_icon_name("kc-keyboard");
 
     KC::Controller controller (options->portname());
     options.reset();

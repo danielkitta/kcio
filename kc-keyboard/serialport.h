@@ -1,14 +1,14 @@
 /*
  * Copyright (c) 2009  Daniel Elstner <daniel.kitta@gmail.com>
  *
- * This file is part of KC-Mill.
+ * This file is part of KC-IO.
  *
- * KC-Mill is free software: you can redistribute it and/or modify it
+ * KC-IO is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * KC-Mill is distributed in the hope that it will be useful, but
+ * KC-IO is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
@@ -17,8 +17,8 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
-#define KCMILL_KCKEYB_SERIALPORT_H_INCLUDED
+#ifndef KC_KEYBOARD_SERIALPORT_H_INCLUDED
+#define KC_KEYBOARD_SERIALPORT_H_INCLUDED
 
 #include <glibmm.h>
 #include <string>
@@ -85,4 +85,4 @@ private:
 
 } // namespace KC
 
-#endif /* !KCMILL_KCKEYB_SERIALPORT_H_INCLUDED */
+#endif /* !KC_KEYBOARD_SERIALPORT_H_INCLUDED */
