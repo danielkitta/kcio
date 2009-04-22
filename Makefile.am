@@ -26,7 +26,7 @@ DISTCHECK_CONFIGURE_FLAGS = --enable-warnings=fatal
 
 SUBDIRS = po
 
-noinst_LIBRARIES = libkc/libkc.a libkc/libkcui.a
+noinst_LIBRARIES = libkc/libkc.a libkcui/libkcui.a
 
 libkc_libkc_a_SOURCES =	\
 	libkc/charset.c	\
