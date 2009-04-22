@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="204"
+   height="72"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   version="1.0"
+   sodipodi:docname="kc-keyboard.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#edeaea"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="4"
+     inkscape:cx="126.2418"
+     inkscape:cy="40.90445"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="true"
+     borderlayer="false"
+     width="400px"
+     inkscape:window-width="1280"
+     inkscape:window-height="1024"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:snap-bbox="true"
+     inkscape:snap-nodes="true"
+     inkscape:bbox-paths="false"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:snap-global="true"
+     showguides="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid2383"
+       visible="true"
+       enabled="true"
+       dotted="false"
+       spacingx="0.5px"
+       spacingy="0.5px"
+       empspacing="2"
+       color="#0000ff"
+       opacity="0.03921569"
+       empcolor="#0000ff"
+       empopacity="0.1254902" />
+    <inkscape:grid
+       type="xygrid"
+       id="grid2400"
+       visible="true"
+       enabled="true"
+       spacingx="4px"
+       spacingy="4px"
+       empspacing="4" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-sa/3.0/" />
+        <dc:title>KC-Keyboard</dc:title>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Daniel Elstner</dc:title>
+          </cc:Agent>
+        </dc:creator>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-sa/3.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Ebene 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-2,-128)">
+    <g
+       id="g3934"
+       transform="translate(-129,80)"
+       style="fill:#000000;fill-opacity:1;stroke:none">
+      <path
+         sodipodi:nodetypes="czzzzczzzzccszsczzz"
+         d="M 286.5,67 C 279.5,67 279,67.5 279,70 C 279,72.5 279.5,73 286.5,73 C 293.5,73 294,72.5 294,70 C 294,67.5 293.5,67 286.5,67 z M 286.5,55 C 280,55 279.5,55.5 279.5,58 C 279.5,60.5 280,61 286.5,61 C 293,61 293.5,60.5 293.5,58 C 293.5,55.5 293,55 286.5,55 z M 301.5,57 C 301.5,61.5 298.42978,62.966628 298.42978,62.966628 C 298.42978,62.966628 302,64 302,70 C 302,78 302,80 286.5,80 C 271,80 271,78 271,70 C 271,64 275.58035,62.966628 275.58035,62.966628 C 275.58035,62.966628 271.5,61.5 271.5,57 C 271.5,52.5 271,48 286.5,48 C 302,48 301.5,52.5 301.5,57 z"
+         id="path3893" />
+      <path
+         sodipodi:nodetypes="ccccszzcczzzcccc"
+         id="path3895"
+         d="M 335,48 L 335,55 L 313,55 L 313,59 C 313,59 314,58 320,58 C 333,58 335,59.956522 335,69 C 335,78.043478 333,80 320,79.999998 C 307,79.999996 305,78 305,71 L 313,71 C 313,73 315,73 320,73 C 325,73 327,73 327,69 C 327,65 325,65 320,65 C 315,65 313,65 313,67 L 305,67 L 305,48 L 335,48 z" />
+      <path
+         sodipodi:nodetypes="czzzcczzzcc"
+         id="path3887"
+         d="M 255,59 C 255,56 255,55 247,55 C 239,55 239,56 239,64 C 239,72 239,73 247,73 C 255,73 255,72 255,69 L 263,69 C 263,79 262,80 247,80 C 232,80 231,79 231,64 C 231,49 232,48 247,48 C 262,48 263,49 263,59 L 255,59 z" />
+      <path
+         sodipodi:nodetypes="ccccccccccc"
+         id="text2380"
+         d="M 220,48 L 231,48 L 215,64 L 231,80 L 221,80 L 209,68 L 209,80 L 200,80 L 200.02141,48.01907 L 209,48 L 209,59" />
+    </g>
+    <g
+       id="g3928"
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       transform="translate(-162,88)">
+      <path
+         sodipodi:nodetypes="ccccccccccccc"
+         id="path3802"
+         d="M 315,101 L 315,106 L 334,106 L 334,111 L 308,111 L 308,86 L 334,86 L 334,91 L 315,91 L 315,96 L 334,96 L 334,101 L 315,101 z" />
+      <path
+         sodipodi:nodetypes="cccccccccccccc"
+         id="path3800"
+         d="M 275,91 L 275,111 L 267.00585,111 L 267,86 L 278,86 L 285,104 L 292,86 L 303.00585,86 L 303,111 L 295,111 L 295,91 L 287,111 L 283,111 L 275,91 z" />
+      <path
+         sodipodi:nodetypes="czzzzczzzz"
+         d="M 248,91 C 241.58332,91 240.5,92 240.5,98.5 C 240.5,105 241.5,106 248,106 C 254.5,106 255.5,105 255.5,98.5 C 255.5,91.998648 254.41667,91 248,91 z M 234,98.5 C 234,88 236,86 248,86 C 260,86 262,88 262,98.5 C 262,109 260.25,111 248,111 C 235.75,111 234,109 234,98.5 z"
+         id="path3798" />
+      <path
+         sodipodi:nodetypes="ccccccccccccc"
+         id="text2388"
+         d="M 222,101 L 208,101 L 208,111 L 201,111 L 201,86 L 208,86 L 208,96 L 222,96 L 222,86 L 229.00585,85.999999 L 229,111 L 222,111 L 222,101 z" />
+    </g>
+    <path
+       id="rect2414"
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:2;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1"
+       d="M 43,128 L 54,128 L 54,160 L 24.5,160 L 43,128 z M 22,128 L 40.5,128 L 22,160 L 22,128 z M 20,128 L 20,160 L 2,160 L 20,128 z"
+       sodipodi:nodetypes="ccccccccccccc" />
+  </g>
+</svg>

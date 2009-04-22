@@ -24,7 +24,7 @@
 #include <sigc++/sigc++.h>
 #include <glibmm.h>
 #include <bitset>
-#include <deque>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -49,8 +49,8 @@ public:
   void set_mode(KeyboardMode mode);
   KeyboardMode get_mode() const { return mode_; }
 
-  bool send_codes(const std::string& sequence);
-  bool send_break(const std::string& sequence);
+  bool break_enabled_for_key(unsigned char scancode) const;
+  bool send_key_codes(const std::string& sequence);
 
   void reset();
   void shutdown();
@@ -59,10 +59,11 @@ private:
   enum State
   {
     STATE_IDLE,
+    STATE_SUSPENDED,
     STATE_EXPECT_COMMAND,
     STATE_PROCESS_COMMAND
   };
-  typedef std::deque<std::string> OutputQueue;
+  typedef std::list<std::string> OutputQueue;
   typedef State (Controller::* CommandHandler)(unsigned char);
 
   OutputQueue                outbox_;

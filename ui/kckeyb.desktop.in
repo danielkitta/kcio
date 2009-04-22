@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+_Name=KC-Keyboard
+_Comment=Virtual PC keyboard interface for the KC 85
+Exec=kckeyb
+Icon=kckeyb
+StartupNotify=true
+Categories=TrayIcon;GTK;System;Emulator;
+OnlyShowIn=GNOME;KDE;XFCE;

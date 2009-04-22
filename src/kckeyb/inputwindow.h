@@ -21,8 +21,12 @@
 #define KCMILL_KCKEYB_INPUTWINDOW_H_INCLUDED
 
 #include "controller.h"
+#include <cairomm/cairomm.h>
 #include <gdkmm.h>
+#include <gtkmm/actiongroup.h>
 #include <gtkmm/statusicon.h>
+#include <gtkmm/toggleaction.h>
+#include <gtkmm/uimanager.h>
 #include <gtkmm/window.h>
 #include <algorithm>
 #include <functional>
@@ -57,7 +61,26 @@ public:
   operator const void*() const { return obj_; }
 };
 
-typedef GObjectPtr<GtkHotkeyInfo> HotkeyInfoPtr;
+template <class T>
+inline void swap(GObjectPtr<T>& a, GObjectPtr<T>& b) { a.swap(b); }
+
+class AutoConnection
+{
+private:
+  void*         instance_;
+  unsigned long id_;
+  // noncopyable
+  AutoConnection(const AutoConnection&);
+  AutoConnection& operator=(const AutoConnection&);
+
+public:
+  AutoConnection() : instance_ (0), id_ (0) {}
+  AutoConnection(void* instance, unsigned long id) : instance_ (instance), id_ (id) {}
+  ~AutoConnection();
+  void swap(AutoConnection& b) { std::swap(instance_, b.instance_); std::swap(id_, b.id_); }
+};
+
+inline void swap(AutoConnection& a, AutoConnection& b) { a.swap(b); }
 
 struct MappedKey
 {
@@ -86,27 +109,45 @@ public:
   explicit InputWindow(Controller& controller);
   virtual ~InputWindow();
 
+  void set_toggle_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods);
+
 protected:
+  virtual void on_realize();
+  virtual void on_screen_changed(const Glib::RefPtr<Gdk::Screen>& previous_screen);
   virtual bool on_button_press_event(GdkEventButton* event);
   virtual bool on_key_press_event(GdkEventKey* event);
   virtual bool on_key_release_event(GdkEventKey* event);
   virtual bool on_map_event(GdkEventAny* event);
+  virtual bool on_expose_event(GdkEventExpose* event);
+  virtual bool on_configure_event(GdkEventConfigure* event);
+  virtual bool on_delete_event(GdkEventAny* event);
 
 private:
   typedef std::set<MappedKey, MappedKey::SortPredicate> KeyMap;
 
-  Controller&                   controller_;
-  std::vector<KeyMap>           keymaps_;
-  Glib::RefPtr<Gtk::StatusIcon> status_icon_;
-  HotkeyInfoPtr                 hotkey_;
-  unsigned int                  hotkey_val_;
-  Gdk::ModifierType             hotkey_mod_;
+  Controller&                         controller_;
+  std::vector<KeyMap>                 keymaps_;
+  Glib::RefPtr<Gtk::StatusIcon>       status_icon_;
+  Glib::RefPtr<Gtk::UIManager>        ui_manager_;
+  Glib::RefPtr<Gtk::ToggleAction>     action_toggle_;
+  GObjectPtr<GtkHotkeyInfo>           hotkey_;
+  Cairo::RefPtr<Cairo::ImageSurface>  key_image_;
+  Cairo::RefPtr<Cairo::ImageSurface>  logo_image_;
+  AutoConnection                      accel_connection_;
 
+  void init_ui_actions();
   void read_keymap_config();
   void bind_hotkey(const Glib::ustring& signature);
   std::string translate_scancode(unsigned int keycode);
-  std::string translate_keyval(unsigned int keyval, Gdk::ModifierType state) const;
-  void on_status_icon_activate();
+  std::string translate_keyval(const GdkEventKey* event);
+
+  void set_rgba_colormap();
+  void update_window_shape();
+  void on_composited_changed();
+  bool on_grab_broken_event(GdkEventGrabBroken* event);
+  void on_status_popup_menu(unsigned int button, guint32 activate_time);
+  void on_action_toggle();
+  void on_action_about();
 };
 
 } // namespace KC

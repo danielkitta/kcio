@@ -76,7 +76,7 @@ private:
   int           remaining_;
   unsigned int  inlen_;
   unsigned int  inpos_;
-  unsigned char inbuf_[128];
+  unsigned char inbuf_[32];
 
   void setup_interface();
   void check_file_error();

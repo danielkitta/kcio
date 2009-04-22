@@ -25,6 +25,19 @@
 #include <termios.h>
 #include <unistd.h>
 
+namespace
+{
+
+/* Last-ditch effort to deal with runtime errors during destructor execution,
+ * when throwing an exception would be unwise.
+ */
+static void destruction_error_message(const char* what, int err_no)
+{
+  g_warning("Error during destruction (%s): %s", what, g_strerror(err_no));
+}
+
+} // anonymous namespace
+
 namespace KC
 {
 
@@ -36,7 +49,7 @@ ScopedPollFD::~ScopedPollFD()
     while (close(fd) < 0)
       if (errno != EINTR)
       {
-        g_warning("Error on close(%d) in destructor: %s", fd, g_strerror(errno));
+        destruction_error_message("close", errno);
         break;
       }
 }
@@ -59,7 +72,12 @@ SerialPort::SerialPort(const std::string& portname)
 }
 
 SerialPort::~SerialPort()
-{}
+{
+  const int fd = poll_fd_.get_fd();
+
+  if (fd >= 0 && tcflush(fd, TCIOFLUSH) < 0)
+    destruction_error_message("tcflush", errno);
+}
 
 // static
 Glib::RefPtr<SerialPort> SerialPort::create(const std::string& portname)
@@ -81,7 +99,9 @@ int SerialPort::read_byte()
       inlen_ = 0;
       return -1;
     }
-
+#if 0
+    g_printerr("\n<read()>");
+#endif
     const ssize_t nread = read(poll_fd_.get_fd(), inbuf_, sizeof inbuf_);
 
     if (nread <= 0)
@@ -93,6 +113,9 @@ int SerialPort::read_byte()
     }
     inlen_ = nread;
   }
+#if 0
+  g_printerr("<%.2X>", static_cast<unsigned int>(inbuf_[inpos_]));
+#endif
   return inbuf_[inpos_++];
 }
 
@@ -135,20 +158,15 @@ void SerialPort::discard()
 
 void SerialPort::close()
 {
-  const int fd = poll_fd_.get_fd();
+  remove_poll(poll_fd_);
 
-  if (fd >= 0)
+  while (::close(poll_fd_.get_fd()) < 0)
   {
-    remove_poll(poll_fd_);
-
-    while (::close(fd) < 0)
-    {
-      if (errno != EINTR)
-        throw_file_error(errno);
-    }
-    poll_fd_.set_fd(-1);
-    poll_fd_.set_revents(Glib::IOCondition());
+    if (errno != EINTR)
+      throw_file_error(errno);
   }
+  poll_fd_.set_fd(-1);
+  poll_fd_.set_revents(Glib::IOCondition());
 }
 
 Glib::ustring SerialPort::display_portname() const
@@ -227,15 +245,15 @@ bool SerialPort::check()
 
 bool SerialPort::dispatch(sigc::slot_base* slot)
 {
-  Glib::IOCondition events = poll_fd_.get_revents();
+  Glib::IOCondition revents = poll_fd_.get_revents();
 
   if (inpos_ < inlen_)
-    events |= Glib::IO_IN;
+    revents |= Glib::IO_IN;
 
-  if ((events & ~Glib::IO_IN) == 0 && remaining_ == 0)
+  if ((revents & poll_fd_.get_events()) == 0 && remaining_ == 0)
     remaining_ = -1;
 
-  (*static_cast<sigc::slot<void, Glib::IOCondition>*>(slot))(events);
+  (*static_cast<sigc::slot<void, Glib::IOCondition>*>(slot))(revents);
 
   return true;
 }
@@ -252,8 +270,8 @@ void SerialPort::setup_interface()
   if (tcgetattr(poll_fd_.get_fd(), &portattr) < 0)
     throw_file_error(errno);
 
-  portattr.c_iflag &= ~(BRKINT | IGNCR | PARMRK | INPCK | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
-  portattr.c_iflag |= IGNBRK | IGNPAR;
+  portattr.c_iflag &= ~(BRKINT | IGNCR | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
+  portattr.c_iflag |= INPCK | IGNBRK | IGNPAR | PARMRK;
 
   portattr.c_oflag &= ~(OPOST | OCRNL | OFILL);
 

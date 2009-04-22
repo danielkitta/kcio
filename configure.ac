@@ -43,10 +43,11 @@ AC_SUBST([GETTEXT_PACKAGE], [kcmill])
 AM_GLIB_GNU_GETTEXT()
 
 DK_MODULE_CURSES()
-PKG_CHECK_MODULES([KCALL_MODULES],  [alsa >= 1.0 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
-PKG_CHECK_MODULES([KCMILL_MODULES], [alsa >= 1.0 gtkmm-2.4 >= 2.12])
-PKG_CHECK_MODULES([KCKEYB_MODULES], [gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
-PKG_CHECK_MODULES([KCREC_MODULES],  [alsa >= 1.0])
+PKG_CHECK_MODULES([KCALL_MODULES],
+  [alsa >= 1.0 librsvg-2.0 >= 2.14 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
+PKG_CHECK_MODULES([KCMILL_MODULES], [alsa gtkmm-2.4])
+PKG_CHECK_MODULES([KCKEYB_MODULES], [librsvg-2.0 gtkhotkey-1.0 gtkmm-2.4])
+PKG_CHECK_MODULES([KCREC_MODULES],  [alsa])
 DK_PKG_PATH_PROG([GTK_UPDATE_ICON_CACHE], [gtk+-2.0], [gtk-update-icon-cache])
 
 AC_TYPE_SSIZE_T()

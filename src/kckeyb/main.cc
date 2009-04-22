@@ -23,6 +23,7 @@
 #include <glibmm.h>
 #include <gtkmm/main.h>
 #include <glib.h>
+#include <librsvg/rsvg.h>
 #include <locale>
 #include <memory>
 #include <stdexcept>
@@ -44,12 +45,12 @@ public:
   ~CmdlineOptions();
 
   Glib::OptionContext& context() { return context_; }
-  std::string& portname() { return filenames_.front(); } // container is never empty
+  const std::string& portname() { return filenames_.front(); } // container is never empty
 };
 
 CmdlineOptions::CmdlineOptions()
 :
-  filenames_ (1, "/dev/ttyS0"),
+  filenames_ (1, std::string("/dev/ttyS0")),
   group_     ("kckeyb", "KC-Keyboard"),
   context_   ()
 {
@@ -92,12 +93,18 @@ int main(int argc, char** argv)
     init_locale();
     std::auto_ptr<CmdlineOptions> options (new CmdlineOptions());
     Gtk::Main kit (argc, argv, options->context());
+    rsvg_init();
+
     Glib::set_application_name("KC-Keyboard");
+    Gtk::Window::set_default_icon_name("kckeyb");
 
     KC::Controller controller (options->portname());
     options.reset();
     KC::InputWindow window (controller);
 
+    window.set_auto_startup_notification(false);
+    Glib::signal_idle().connect(sigc::bind_return(&gdk_notify_startup_complete, false),
+                                Glib::PRIORITY_LOW);
     Gtk::Main::run();
 
     controller.shutdown();

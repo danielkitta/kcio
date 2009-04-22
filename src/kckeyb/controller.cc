@@ -73,58 +73,53 @@ Controller::Controller(const std::string& portname)
 Controller::~Controller()
 {}
 
-bool Controller::send_codes(const std::string& sequence)
+bool Controller::break_enabled_for_key(unsigned char scancode) const
 {
-  const OutputQueue::size_type length = outbox_.size();
-
-  if (length >= 8)
-    return false;
-
-  if (length == 0)
-  {
-    // Try to send as much as possible immediately in order to reduce latency.
-    const std::string::size_type n = port_->write_bytes(sequence);
-
-    if (n < sequence.size())
-    {
-      // Queue what's left and wait for the output to become writable again.
-      outbox_.push_back(sequence.substr(n));
-      port_->enable_events(Glib::IO_OUT);
-    }
-  }
-  else
-    outbox_.push_back(sequence);
-
-  return true;
+  return !break_disabled_.test(scancode);
 }
 
-bool Controller::send_break(const std::string& sequence)
+bool Controller::send_key_codes(const std::string& sequence)
 {
-  g_return_val_if_fail(!sequence.empty(), false);
+  if (state_ == STATE_IDLE)
+  {
+    if (outbox_.empty())
+    {
+      // Try to send as much as possible immediately in order to reduce latency.
+      const std::string::size_type n = port_->write_bytes(sequence);
 
-  const unsigned char code = *sequence.begin();
-
-  if (!break_disabled_.test(code))
-    return send_codes('\xF0' + sequence);
-
-  return true;
+      if (n < sequence.size())
+      {
+        // Queue what's left and wait for the output to become writable again.
+        outbox_.push_back(sequence.substr(n));
+        port_->enable_events(Glib::IO_OUT);
+      }
+      return true;
+    }
+    else if (outbox_.size() < 8)
+    {
+      outbox_.push_back(sequence);
+      return true;
+    }
+  }
+  return false;
 }
 
 void Controller::shutdown()
 {
+  port_->discard();
   port_->close();
   outbox_.clear();
 }
 
 void Controller::reset()
 {
-  g_warn_if_fail(state_ == STATE_IDLE);
+  state_ = STATE_IDLE;
   command_handler_ = 0;
 
   outbox_.clear();
   port_->discard();
 
-  send_codes(std::string(1, '\x0D'));
+  send_key_codes(std::string(1, '\x0D'));
 }
 
 void Controller::set_mode(KeyboardMode mode)
@@ -149,6 +144,7 @@ void Controller::on_io_event(Glib::IOCondition condition)
       switch (state_)
       {
         case STATE_IDLE:
+        case STATE_SUSPENDED:
           if (byte == 0x00)
           {
             state_ = STATE_EXPECT_COMMAND;
@@ -157,7 +153,7 @@ void Controller::on_io_event(Glib::IOCondition condition)
           break;
 
         case STATE_EXPECT_COMMAND:
-          state_ = STATE_IDLE; // in case of exceptions
+          state_ = STATE_SUSPENDED;
           on_command(byte);
           break;
 
@@ -187,6 +183,8 @@ void Controller::on_io_event(Glib::IOCondition condition)
 
 void Controller::on_command(unsigned int word)
 {
+  port_->discard();
+  outbox_.clear();
   command_buffer_.clear();
 
   switch (word)
@@ -196,26 +194,28 @@ void Controller::on_command(unsigned int word)
       reset();
       break;
     case CMD_MODE_SCANCODES:
-      reset();
-      mode_ = KEYBOARD_RAW;
+      mode_  = KEYBOARD_RAW;
+      state_ = STATE_IDLE;
       break;
     case CMD_IDENTIFY:
-      send_codes(std::string("\xFA\x83\xAB", 3));
+      state_ = STATE_IDLE;
+      send_key_codes(std::string("\xFA\x83\xAB", 3));
       break;
     case CMD_PROGRAM_KEYS:
       command_handler_ = &Controller::command_program_keys;
       state_ = STATE_PROCESS_COMMAND;
       break;
     case CMD_PROGRAMMABLE:
-      send_codes(std::string(1, '\xFF')); // programming not available
+      state_ = STATE_IDLE;
+      send_key_codes(std::string(1, '\xFF')); // programming not available
       break;
     case CMD_MODE_CAOS:
-      reset();
       mode_ = KEYBOARD_CAOS;
+      reset();
       break;
     case CMD_MODE_CPM:
-      reset();
       mode_ = KEYBOARD_CPM;
+      reset();
       break;
     case CMD_TYPE_RATE:
       command_handler_ = &Controller::command_type_rate;
@@ -236,9 +236,15 @@ void Controller::on_command(unsigned int word)
     case CMD_START_SCANNING:
       if (mode_ != KEYBOARD_RAW)
         g_message("Command start scanning: not in scancode mode");
+      state_ = STATE_IDLE;
       break;
     case CMD_ECHO:
-      send_codes(std::string(1, '\xEE'));
+      state_ = STATE_IDLE;
+      send_key_codes(std::string(1, '\xEE'));
+      break;
+    default:
+      g_message("Unknown command (0x%.2X)", word);
+      state_ = STATE_IDLE;
       break;
   }
 }
@@ -273,7 +279,7 @@ Controller::State Controller::command_configure_all(unsigned char byte)
   else
     command_not_implemented("configure all keys", byte);
 
-  return STATE_IDLE;
+  return STATE_SUSPENDED;
 }
 
 Controller::State Controller::command_configure_key(unsigned char byte)
@@ -292,7 +298,7 @@ Controller::State Controller::command_configure_key(unsigned char byte)
     default:   command_not_implemented("configure key", byte); break;
   }
   command_buffer_.clear();
-  return STATE_IDLE;
+  return STATE_SUSPENDED;
 }
 
 Controller::State Controller::command_switch_leds(unsigned char byte)

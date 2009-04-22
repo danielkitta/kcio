@@ -26,11 +26,15 @@ DISTCHECK_CONFIGURE_FLAGS = --enable-warnings=fatal
 
 SUBDIRS = po
 
-noinst_LIBRARIES = src/libkc/libkc.a
+noinst_LIBRARIES = src/libkc/libkc.a src/libkc/libkcui.a
 
 src_libkc_libkc_a_SOURCES =	\
 	src/libkc/charset.c	\
 	src/libkc/libkc.h
+
+src_libkc_libkcui_a_SOURCES =	\
+	src/libkc/appdata.cc	\
+	src/libkc/libkcui.h
 
 bin_PROGRAMS =			\
 	src/cli/kcplay		\
@@ -60,33 +64,38 @@ src_kcmill_SOURCES =	\
 # The location of the gettext catalogs as defined by intltool.
 kclocaledir = $(prefix)/$(DATADIRNAME)/locale
 global_defs = -DKCMILL_LOCALEDIR=\""$(kclocaledir)"\" -DKCMILL_PKGDATADIR=\""$(pkgdatadir)"\"
-kc_includes = -I$(top_srcdir)/src/libkc -I$(top_builddir)
+kc_includes = -I$(top_builddir)/src/libkc -I$(top_srcdir)/src/libkc -I$(top_builddir)
 AM_CPPFLAGS = $(global_defs) $(kc_includes) $(CURSES_CFLAGS) $(KCALL_MODULES_CFLAGS)
 AM_CFLAGS   = $(KCALL_WFLAGS)
 AM_CXXFLAGS = $(KCALL_WXXFLAGS)
 
-src_cli_kcplay_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
-src_cli_kcrec_LDADD	= $(noinst_LIBRARIES) $(KCREC_MODULES_LIBS)
-src_cli_kcsend_LDADD	= $(noinst_LIBRARIES)
-src_cli_kcterm_LDADD	= $(noinst_LIBRARIES) $(CURSES_LIBS)
-src_kckeyb_kckeyb_LDADD	= $(noinst_LIBRARIES) $(KCKEYB_MODULES_LIBS) $(INTLLIBS)
-src_kcmill_LDADD	= $(noinst_LIBRARIES) $(KCMILL_MODULES_LIBS) $(INTLLIBS)
+src_cli_kcplay_LDADD	= src/libkc/libkc.a $(KCREC_MODULES_LIBS)
+src_cli_kcrec_LDADD	= src/libkc/libkc.a $(KCREC_MODULES_LIBS)
+src_cli_kcsend_LDADD	= src/libkc/libkc.a
+src_cli_kcterm_LDADD	= src/libkc/libkc.a $(CURSES_LIBS)
+src_kckeyb_kckeyb_LDADD	= src/libkc/libkc.a src/libkc/libkcui.a $(KCKEYB_MODULES_LIBS) $(INTLLIBS)
+src_kcmill_LDADD	= src/libkc/libkc.a src/libkc/libkcui.a $(KCMILL_MODULES_LIBS) $(INTLLIBS)
 
-iconthemedir	    = $(datadir)/icons/hicolor
-appicondir	    = $(iconthemedir)/scalable/apps
-appicon16dir	    = $(iconthemedir)/16x16/apps
-appicon24dir	    = $(iconthemedir)/24x24/apps
-appicon48dir	    = $(iconthemedir)/48x48/apps
-dist_appicon_DATA   = ui/kcmill.svg
-dist_appicon16_DATA = ui/16x16/kcmill.png
-dist_appicon24_DATA = ui/24x24/kcmill.png
-dist_appicon48_DATA = ui/48x48/kcmill.png
+iconthemedir = $(datadir)/icons/hicolor
+appicon16dir = $(iconthemedir)/16x16/apps
+appicon22dir = $(iconthemedir)/22x22/apps
+appicon24dir = $(iconthemedir)/24x24/apps
+appicon32dir = $(iconthemedir)/32x32/apps
+appicon48dir = $(iconthemedir)/48x48/apps
+appiconsvdir = $(iconthemedir)/scalable/apps
 
-desktop_in_files    = ui/kcmill.desktop.in
+dist_appicon16_DATA = ui/16x16/kckeyb.png ui/16x16/kcmill.png
+dist_appicon22_DATA = ui/22x22/kckeyb.png ui/22x22/kcmill.png
+dist_appicon24_DATA = ui/24x24/kckeyb.png ui/24x24/kcmill.png
+dist_appicon32_DATA = ui/32x32/kckeyb.png ui/32x32/kcmill.png
+dist_appicon48_DATA = ui/48x48/kckeyb.png ui/48x48/kcmill.png
+dist_appiconsv_DATA = ui/scalable/kckeyb.svg ui/scalable/kcmill.svg
+
+desktop_in_files    = ui/kckeyb.desktop.in ui/kcmill.desktop.in
 desktopdir          = $(datadir)/applications
-desktop_DATA        = ui/kcmill.desktop
+desktop_DATA        = ui/kckeyb.desktop ui/kcmill.desktop
 
-dist_pkgdata_DATA   = ui/keymap.conf
+dist_pkgdata_DATA   = ui/keymap.conf ui/enter-key.svg ui/keyboard-logo.svg
 
 dist_intltool       = intltool-extract.in intltool-merge.in intltool-update.in
 dist_noinst_DATA    = $(dist_intltool) $(desktop_in_files)
