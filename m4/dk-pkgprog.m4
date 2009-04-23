@@ -16,7 +16,7 @@
 ## with danielk's Autostuff; if not, write to the Free Software Foundation,
 ## Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-#serial 20070105
+#serial 20090423
 
 ## DK_PKG_PATH_PROG(variable, package, executable)
 ##
@@ -30,6 +30,7 @@ AC_DEFUN([DK_PKG_PATH_PROG],
 m4_if([$3],, [AC_FATAL([3 arguments expected])])[]dnl
 AC_REQUIRE([PKG_PROG_PKG_CONFIG])[]dnl
 dnl
+AC_ARG_VAR([$1], [path to $3 utility])
 dk_pkg_prefix=`$PKG_CONFIG --variable=exec_prefix "$2" 2>&AS_MESSAGE_LOG_FD`
 
 AS_IF([test "x$dk_pkg_prefix" = x],

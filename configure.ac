@@ -22,7 +22,7 @@ AC_CONFIG_SRCDIR([libkc/libkc.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([1.8 -Wall gnu no-define nostdinc check-news])
+AM_INIT_AUTOMAKE([1.8 -Wall gnu no-define check-news])
 AC_ARG_VAR([ACLOCAL_FLAGS], [aclocal flags, e.g. -I <macro dir>])
 
 AC_PROG_CC()

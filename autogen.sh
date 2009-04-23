@@ -5,6 +5,6 @@ test -n "$srcdir" || srcdir=.
   cd "$srcdir"
   export AUTOPOINT=glib-gettextize
   intltoolize --copy --force
-  autoreconf --force --install -I m4 $ACLOCAL_FLAGS
+  autoreconf --force --install
 )
 test -n "$NOCONFIGURE" || "$srcdir/configure" "$@"
