@@ -26,7 +26,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include <libkc.h>
+#include <libkc/libkc.h>
 
 #define BAUDRATE_NORMAL B1200
 #define BAUDRATE_BOOST  B2400

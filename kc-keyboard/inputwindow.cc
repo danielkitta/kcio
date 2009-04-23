@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include "inputwindow.h"
-#include <libkc.h>
-#include <libkcui.h>
+#include <libkc/libkc.h>
+#include <libkcui/libkcui.h>
 #include <glibmm.h>
 #include <cairomm/cairomm.h>
 #include <gtkmm/accelgroup.h>
