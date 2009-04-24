@@ -193,13 +193,13 @@ init_serial_port(int portfd, const char* portname)
   if (tcgetattr(portfd, &portattr) < 0)
     exit_error(portname);
 
-  portattr.c_iflag &= ~(BRKINT | INPCK | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
-  portattr.c_iflag |= IGNBRK | IGNCR;
+  portattr.c_iflag &= ~(BRKINT | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
+  portattr.c_iflag |= INPCK | IGNBRK | IGNPAR | PARMRK | IGNCR;
 
   portattr.c_oflag &= ~(OPOST | OCRNL | OFILL);
 
-  portattr.c_cflag &= ~(CLOCAL | CSIZE | CSTOPB | PARENB);
-  portattr.c_cflag |= CREAD | CS8 | HUPCL | CRTSCTS; /* not in POSIX */
+  portattr.c_cflag &= ~(CSIZE | CSTOPB | PARENB);
+  portattr.c_cflag |= CLOCAL | CREAD | CS8 | HUPCL | CRTSCTS; /* not in POSIX */
 
   portattr.c_lflag &= ~(ICANON | IEXTEN | ISIG | ECHO | NOFLSH | TOSTOP);
 
@@ -381,8 +381,9 @@ main(int argc, char** argv)
 
   input_loop(portfd);
 
-  if (close(portfd) < 0)
-    exit_error(portname);
+  while (close(portfd) < 0)
+    if (errno != EINTR)
+      exit_error(portname);
 
   destroy_screen();
   return 0;
