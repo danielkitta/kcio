@@ -60,7 +60,7 @@ DK_ARG_ENABLE_WARNINGS([KCIO_WFLAGS],
 AC_LANG([C++])
 DK_ARG_ENABLE_WARNINGS([KCIO_WXXFLAGS],
                        [-Wall],
-                       [-DGDK_MULTIHEAD_SAFE -pedantic -Wall -Wextra -Wno-long-long],
+                       [-DGDK_MULTIHEAD_SAFE -Wall -Wextra],
                        [LIBSIGC PANGO G GDK GDK_PIXBUF GLIBMM GDKMM GTKMM])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
