@@ -348,14 +348,13 @@ bool InputWindow::on_map_event(GdkEventAny* event)
   {
     const Gdk::GrabStatus status = get_window()->keyboard_grab(false, gtk_get_current_event_time());
 
-    if (status != Gdk::GRAB_SUCCESS)
-    {
-      g_warning("Failed to acquire keyboard grab (status code %d)", int(status));
-      hide();
-      return true; // stop emission
-    }
+    if (status == Gdk::GRAB_SUCCESS)
+      return false;
+
+    g_warning("Failed to acquire keyboard grab (status code %d)", int(status));
+    hide();
   }
-  return Gtk::Window::on_map_event(event);
+  return true; // stop emission
 }
 
 bool InputWindow::on_expose_event(GdkEventExpose*)
