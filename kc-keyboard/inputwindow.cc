@@ -90,6 +90,11 @@ render_image_surface(const std::string& basename, Cairo::Format format)
   const Cairo::RefPtr<Cairo::Context> context = Cairo::Context::create(surface);
   rsvg_handle_render_cairo(svg.get(), context->cobj());
 
+  if (!rsvg_handle_close(svg.get(), &error))
+  {
+    g_warning("%s", error->message);
+    g_error_free(error);
+  }
   return surface;
 }
 
