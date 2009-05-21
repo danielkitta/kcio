@@ -81,20 +81,20 @@ appicon22dir = $(iconthemedir)/22x22/apps
 appicon24dir = $(iconthemedir)/24x24/apps
 appicon32dir = $(iconthemedir)/32x32/apps
 appicon48dir = $(iconthemedir)/48x48/apps
-appiconsvdir = $(iconthemedir)/scalable/apps
+appiconscdir = $(iconthemedir)/scalable/apps
 
-dist_appicon16_DATA = ui/16x16/kc-keyboard.png ui/16x16/kc-control.png
-dist_appicon22_DATA = ui/22x22/kc-keyboard.png ui/22x22/kc-control.png
-dist_appicon24_DATA = ui/24x24/kc-keyboard.png ui/24x24/kc-control.png
-dist_appicon32_DATA = ui/32x32/kc-keyboard.png ui/32x32/kc-control.png
-dist_appicon48_DATA = ui/48x48/kc-keyboard.png ui/48x48/kc-control.png
-dist_appiconsv_DATA = ui/scalable/kc-keyboard.svg ui/scalable/kc-control.svg
+dist_appicon16_DATA = ui/16x16/kc-control.png ui/16x16/kc-keyboard.png
+dist_appicon22_DATA = ui/22x22/kc-control.png ui/22x22/kc-keyboard.png
+dist_appicon24_DATA = ui/24x24/kc-control.png ui/24x24/kc-keyboard.png
+dist_appicon32_DATA = ui/32x32/kc-control.png ui/32x32/kc-keyboard.png
+dist_appicon48_DATA = ui/48x48/kc-control.png ui/48x48/kc-keyboard.png
+dist_appiconsc_DATA = ui/scalable/kc-control.svg ui/scalable/kc-keyboard.svg
 
-desktop_in_files    = ui/kc-keyboard.desktop.in ui/kc-control.desktop.in
+desktop_in_files    = ui/kc-control.desktop.in ui/kc-keyboard.desktop.in
 desktopdir          = $(datadir)/applications
-desktop_DATA        = ui/kc-keyboard.desktop ui/kc-control.desktop
+desktop_DATA        = ui/kc-control.desktop ui/kc-keyboard.desktop
 
-dist_pkgdata_DATA   = ui/keymap.conf ui/enter-key.svg ui/keyboard-logo.svg
+dist_pkgdata_DATA   = ui/enter-key.svg ui/keyboard-logo.svg ui/keymap.conf
 
 dist_intltool       = intltool-extract.in intltool-merge.in intltool-update.in
 dist_noinst_DATA    = $(dist_intltool) $(desktop_in_files)
