@@ -249,6 +249,7 @@ void InputWindow::on_realize()
 
   Gtk::Window::on_realize();
 
+  get_window()->unset_back_pixmap();
   update_window_shape();
 }
 
