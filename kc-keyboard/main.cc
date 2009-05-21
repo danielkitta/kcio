@@ -108,6 +108,7 @@ int main(int argc, char** argv)
     Gtk::Main::run();
 
     controller.shutdown();
+    rsvg_term();
     return 0;
   }
   catch (const Glib::OptionError& error)
