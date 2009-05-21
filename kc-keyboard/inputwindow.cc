@@ -78,6 +78,7 @@ render_image_surface(const std::string& basename, Cairo::Format format)
   if (!svg)
   {
     g_warning("%s", error->message);
+    g_error_free(error);
     return Cairo::RefPtr<Cairo::ImageSurface>();
   }
   RsvgDimensionData dims = { 0, 0, 0.0, 0.0 };
@@ -211,7 +212,10 @@ void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType a
 
     if (gtk_hotkey_info_is_bound(hotkey.get()) // racy...
         && !gtk_hotkey_info_unbind(hotkey.get(), &error))
+    {
       g_warning("%s", error->message);
+      g_error_free(error);
+    }
   }
 
   if (accel_key != GDK_VoidSymbol)
@@ -222,8 +226,10 @@ void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType a
     g_return_if_fail(hotkey);
 
     if (!gtk_hotkey_info_bind(hotkey.get(), &error))
+    {
       g_warning("%s", error->message);
-
+      g_error_free(error);
+    }
     g_signal_connect_swapped(hotkey.get(), "activated",
                              G_CALLBACK(&gtk_action_activate),
                              Glib::unwrap(action_capture_));
