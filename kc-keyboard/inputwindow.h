@@ -109,7 +109,7 @@ public:
   explicit InputWindow(Controller& controller);
   virtual ~InputWindow();
 
-  void set_toggle_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods);
+  void set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods);
 
 protected:
   virtual void on_realize();
@@ -129,7 +129,7 @@ private:
   std::vector<KeyMap>                 keymaps_;
   Glib::RefPtr<Gtk::StatusIcon>       status_icon_;
   Glib::RefPtr<Gtk::UIManager>        ui_manager_;
-  Glib::RefPtr<Gtk::ToggleAction>     action_toggle_;
+  Glib::RefPtr<Gtk::ToggleAction>     action_capture_;
   GObjectPtr<GtkHotkeyInfo>           hotkey_;
   Cairo::RefPtr<Cairo::ImageSurface>  key_image_;
   Cairo::RefPtr<Cairo::ImageSurface>  logo_image_;
@@ -146,7 +146,7 @@ private:
   void on_composited_changed();
   bool on_grab_broken_event(GdkEventGrabBroken* event);
   void on_status_popup_menu(unsigned int button, guint32 activate_time);
-  void on_action_toggle();
+  void on_action_capture();
   void on_action_about();
 };
 

@@ -130,16 +130,16 @@ static void warn_on_keyfile_error(const Glib::KeyFileError& error)
 
 extern "C"
 {
-static void on_accel_toggle_changed(GtkAccelMap*, char* accel_path,
+static void on_accel_capture_changed(GtkAccelMap*, char* accel_path,
                                     unsigned int accel_key, GdkModifierType accel_mods,
                                     void* user_data)
 {
   try
   {
-    g_return_if_fail(std::strcmp(accel_path, "<KC-Keyboard>/Toggle") == 0);
+    g_return_if_fail(std::strcmp(accel_path, "<KC-Keyboard>/Capture") == 0);
 
     KC::InputWindow& input_window = *static_cast<KC::InputWindow*>(user_data);
-    input_window.set_toggle_hotkey(accel_key, Gdk::ModifierType(accel_mods));
+    input_window.set_capture_hotkey(accel_key, Gdk::ModifierType(accel_mods));
   }
   catch (...)
   {
@@ -168,12 +168,12 @@ void swap(MappedKey& a, MappedKey& b)
 
 InputWindow::InputWindow(Controller& controller)
 :
-  Gtk::Window    (Gtk::WINDOW_POPUP),
-  controller_    (controller),
-  keymaps_       (KEYBOARD_COUNT),
-  status_icon_   (Gtk::StatusIcon::create("kc-keyboard")),
-  ui_manager_    (Gtk::UIManager::create()),
-  action_toggle_ (Gtk::ToggleAction::create("Toggle", "_Toggle keyboard"))
+  Gtk::Window     (Gtk::WINDOW_POPUP),
+  controller_     (controller),
+  keymaps_        (KEYBOARD_COUNT),
+  status_icon_    (Gtk::StatusIcon::create("kc-keyboard")),
+  ui_manager_     (Gtk::UIManager::create()),
+  action_capture_ (Gtk::ToggleAction::create("Capture", "_Capture keyboard input"))
 {
   add_events(Gdk::EXPOSURE_MASK | Gdk::KEY_PRESS_MASK | Gdk::KEY_RELEASE_MASK
              | Gdk::STRUCTURE_MASK);
@@ -184,7 +184,7 @@ InputWindow::InputWindow(Controller& controller)
   signal_grab_broken_event() .connect(sigc::mem_fun(*this, &InputWindow::on_grab_broken_event));
 
   status_icon_->signal_activate() // this hack is fugly and it's Murray's fault
-    .connect(sigc::mem_fun(*action_toggle_.operator->(), &Gtk::Action::activate));
+    .connect(sigc::mem_fun(*action_capture_.operator->(), &Gtk::Action::activate));
   status_icon_->signal_popup_menu()
     .connect(sigc::mem_fun(*this, &InputWindow::on_status_popup_menu));
 
@@ -200,7 +200,7 @@ InputWindow::InputWindow(Controller& controller)
 InputWindow::~InputWindow()
 {}
 
-void InputWindow::set_toggle_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods)
+void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods)
 {
   GError* error = 0;
 
@@ -217,7 +217,7 @@ void InputWindow::set_toggle_hotkey(unsigned int accel_key, Gdk::ModifierType ac
   if (accel_key != GDK_VoidSymbol)
   {
     const Glib::ustring signature = Gtk::AccelGroup::name(accel_key, accel_mods);
-    GObjectPtr<GtkHotkeyInfo> hotkey (gtk_hotkey_info_new("KC-Keyboard", "Toggle",
+    GObjectPtr<GtkHotkeyInfo> hotkey (gtk_hotkey_info_new("KC-Keyboard", "Capture",
                                                           signature.c_str(), 0));
     g_return_if_fail(hotkey);
 
@@ -226,7 +226,7 @@ void InputWindow::set_toggle_hotkey(unsigned int accel_key, Gdk::ModifierType ac
 
     g_signal_connect_swapped(hotkey.get(), "activated",
                              G_CALLBACK(&gtk_action_activate),
-                             Glib::unwrap(action_toggle_));
+                             Glib::unwrap(action_capture_));
     hotkey.swap(hotkey_);
   }
 }
@@ -419,7 +419,7 @@ bool InputWindow::on_configure_event(GdkEventConfigure* event)
 
 bool InputWindow::on_delete_event(GdkEventAny*)
 {
-  action_toggle_->set_active(false);
+  action_capture_->set_active(false);
   return true;
 }
 
@@ -434,7 +434,7 @@ void InputWindow::on_composited_changed()
 bool InputWindow::on_grab_broken_event(GdkEventGrabBroken* event)
 {
   if (event->keyboard && event->window != event->grab_window
-      && action_toggle_->get_active())
+      && action_capture_->get_active())
   {
     g_warning("Keyboard grab broken involuntarily");
     hide();
@@ -448,14 +448,14 @@ void InputWindow::init_ui_actions()
   GtkAccelMap *const accel_map = gtk_accel_map_get();
 
   AutoConnection accel_connection (accel_map,
-      g_signal_connect(accel_map, "changed::<KC-Keyboard>/Toggle",
-                       G_CALLBACK(&on_accel_toggle_changed), this));
+      g_signal_connect(accel_map, "changed::<KC-Keyboard>/Capture",
+                       G_CALLBACK(&on_accel_capture_changed), this));
 
   const Glib::RefPtr<Gtk::ActionGroup> group = Gtk::ActionGroup::create("KC-Keyboard");
 
-  group->add(action_toggle_,
-             Gtk::AccelKey(GDK_Return, Gdk::SUPER_MASK, "<KC-Keyboard>/Toggle"),
-             sigc::mem_fun(*this, &InputWindow::on_action_toggle));
+  group->add(action_capture_,
+             Gtk::AccelKey(GDK_Return, Gdk::SUPER_MASK, "<KC-Keyboard>/Capture"),
+             sigc::mem_fun(*this, &InputWindow::on_action_capture));
 
   group->add(Gtk::Action::create("Quit", Gtk::Stock::QUIT),
              Gtk::AccelKey(GDK_q, Gdk::SUPER_MASK, "<KC-Keyboard>/Quit"),
@@ -468,7 +468,7 @@ void InputWindow::init_ui_actions()
   add_accel_group(ui_manager_->get_accel_group());
 
   ui_manager_->add_ui_from_string("<popup name='Menu'>"
-                                    "<menuitem action='Toggle'/>"
+                                    "<menuitem action='Capture'/>"
                                     "<menuitem action='About'/>"
                                     "<menuitem action='Quit'/>"
                                   "</popup>");
@@ -580,11 +580,11 @@ std::string InputWindow::translate_keyval(const GdkEventKey* event)
   return std::string();
 }
 
-void InputWindow::on_action_toggle()
+void InputWindow::on_action_capture()
 {
   const unsigned int event_time = gtk_get_current_event_time();
 
-  if (action_toggle_->get_active())
+  if (action_capture_->get_active())
     present(event_time);
   else
   {
@@ -603,7 +603,7 @@ void InputWindow::on_status_popup_menu(unsigned int button, guint32 activate_tim
   if (Gtk::Menu *const menu = dynamic_cast<Gtk::Menu*>(ui_manager_->get_widget("/Menu")))
   {
     // Prevent the popup menu from breaking the input window's keyboard grab.
-    menu->set_take_focus(!action_toggle_->get_active());
+    menu->set_take_focus(!action_capture_->get_active());
     status_icon_->popup_menu_at_position(*menu, button, activate_time);
   }
 }
