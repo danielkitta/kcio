@@ -1,4 +1,4 @@
-## Copyright (c) 2004-2007  Daniel Elstner  <daniel.kitta@gmail.com>
+## Copyright (c) 2004-2009  Daniel Elstner  <daniel.kitta@gmail.com>
 ##
 ## This file is part of danielk's Autostuff.
 ##
@@ -13,10 +13,9 @@
 ## for more details.
 ##
 ## You should have received a copy of the GNU General Public License along
-## with danielk's Autostuff; if not, write to the Free Software Foundation,
-## Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+## with danielk's Autostuff; if not, see <http://www.gnu.org/licenses/>.
 
-#serial 20070116
+#serial 20090528
 
 ## DK_ARG_ENABLE_WARNINGS(variable, min-flags, max-flags, [deprecation-prefixes])
 ##
@@ -58,25 +57,22 @@ AS_IF([test "x$dk_lang" != x],
 [
   AC_MSG_CHECKING([which $dk_lang compiler warning flags to use])
 
+  dk_deprecation_flags=
+  dk_tested_flags=
+
   case $dk_enable_warnings in
     no)     dk_warning_flags=;;
     max)    dk_warning_flags="$3";;
-    fatal)  dk_warning_flags="$3 -Werror";;
+    fatal)  dk_warning_flags="$3 -Werror"
+m4_if([$4],,, [dnl
+            for dk_prefix in $4
+            do
+              dk_deprecation_flags="${dk_deprecation_flags}-D${dk_prefix}_DISABLE_DEPRECATED "
+            done
+])[]dnl
+            ;;
     *)      dk_warning_flags="$2";;
   esac
-
-  dk_deprecation_flags=
-m4_if([$4],,, [
-  AS_IF([test "x$dk_enable_warnings" = xfatal],
-  [
-    dk_deprecation_prefixes="$4"
-    for dk_prefix in $dk_deprecation_prefixes
-    do
-      dk_deprecation_flags="${dk_deprecation_flags}-D${dk_prefix}_DISABLE_DEPRECATED "
-    done
-  ])
-])[]dnl
-  dk_tested_flags=
 
   AS_IF([test "x$dk_warning_flags" != x],
   [
