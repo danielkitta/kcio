@@ -114,7 +114,6 @@ public:
 protected:
   virtual void on_realize();
   virtual void on_screen_changed(const Glib::RefPtr<Gdk::Screen>& previous_screen);
-  virtual bool on_button_press_event(GdkEventButton* event);
   virtual bool on_key_press_event(GdkEventKey* event);
   virtual bool on_key_release_event(GdkEventKey* event);
   virtual bool on_map_event(GdkEventAny* event);

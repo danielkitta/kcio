@@ -312,16 +312,6 @@ void InputWindow::update_window_shape()
   }
 }
 
-bool InputWindow::on_button_press_event(GdkEventButton* event)
-{
-  if (event->type == GDK_2BUTTON_PRESS && event->button == 1)
-  {
-    Gtk::Main::quit();
-    return true; // handled
-  }
-  return Gtk::Window::on_button_press_event(event);
-}
-
 bool InputWindow::on_key_press_event(GdkEventKey* event)
 {
   const std::string kcseq = (controller_.get_mode() == KEYBOARD_RAW)
