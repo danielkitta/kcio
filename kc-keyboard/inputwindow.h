@@ -118,7 +118,6 @@ protected:
   virtual bool on_key_release_event(GdkEventKey* event);
   virtual bool on_map_event(GdkEventAny* event);
   virtual bool on_expose_event(GdkEventExpose* event);
-  virtual bool on_configure_event(GdkEventConfigure* event);
   virtual bool on_delete_event(GdkEventAny* event);
 
 private:

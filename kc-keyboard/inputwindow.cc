@@ -410,15 +410,6 @@ bool InputWindow::on_expose_event(GdkEventExpose*)
   return true;
 }
 
-bool InputWindow::on_configure_event(GdkEventConfigure* event)
-{
-#if 0
-  if (event->width != get_width() || event->height != get_height())
-    update_window_shape();
-#endif
-  return Gtk::Window::on_configure_event(event);
-}
-
 bool InputWindow::on_delete_event(GdkEventAny*)
 {
   action_capture_->set_active(false);
