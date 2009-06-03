@@ -445,7 +445,7 @@ void InputWindow::on_composited_changed()
 
 bool InputWindow::on_grab_broken_event(GdkEventGrabBroken* event)
 {
-  if (event->keyboard && event->window != event->grab_window
+  if (event->keyboard && !event->implicit && event->window != event->grab_window
       && action_capture_->get_active())
   {
     g_warning("Keyboard grab broken involuntarily");
