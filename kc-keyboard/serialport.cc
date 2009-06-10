@@ -65,6 +65,7 @@ SerialPort::SerialPort(const std::string& portname)
 {
   if (poll_fd_.get_fd() < 0)
     throw_file_error(errno);
+
   setup_interface();
 
   set_can_recurse(false);
@@ -89,7 +90,6 @@ int SerialPort::read_byte()
 {
   if (inpos_ >= inlen_)
   {
-    inpos_ = 0;
     // When reaching the end of the buffer, don't attempt to read more
     // data right away, even though there might be more already in the
     // queue.  Instead, return -1 and wait until the next turn to avoid
@@ -97,11 +97,9 @@ int SerialPort::read_byte()
     if (inlen_ != 0)
     {
       inlen_ = 0;
+      inpos_ = 0;
       return -1;
     }
-#if 0
-    g_printerr("\n<read()>");
-#endif
     const ssize_t nread = read(poll_fd_.get_fd(), inbuf_, sizeof inbuf_);
 
     if (nread <= 0)
@@ -113,9 +111,6 @@ int SerialPort::read_byte()
     }
     inlen_ = nread;
   }
-#if 0
-  g_printerr("<%.2X>", static_cast<unsigned int>(inbuf_[inpos_]));
-#endif
   return inbuf_[inpos_++];
 }
 
