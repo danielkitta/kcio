@@ -41,7 +41,8 @@
 namespace
 {
 
-static const double rounding_radius = 8.0;
+static const double      rounding_radius = 8.0;
+static const char *const accels_filename = "kc-keyboard-accels";
 
 struct MappedKeyEqual : public std::binary_function<bool, KC::MappedKey, KC::MappedKey>
 {
@@ -136,16 +137,21 @@ static void warn_on_keyfile_error(const Glib::KeyFileError& error)
 
 extern "C"
 {
-static void on_accel_capture_changed(GtkAccelMap*, char* accel_path,
-                                    unsigned int accel_key, GdkModifierType accel_mods,
-                                    void* user_data)
+static void on_accel_map_changed(GtkAccelMap*, char* accel_path,
+                                 unsigned int accel_key, GdkModifierType accel_mods,
+                                 void* user_data)
 {
   try
   {
-    g_return_if_fail(std::strcmp(accel_path, "<KC-Keyboard>/Capture") == 0);
+    if (g_str_has_prefix(accel_path, "<KC-Keyboard>"))
+    {
+      KC::InputWindow& input_window = *static_cast<KC::InputWindow*>(user_data);
 
-    KC::InputWindow& input_window = *static_cast<KC::InputWindow*>(user_data);
-    input_window.set_capture_hotkey(accel_key, Gdk::ModifierType(accel_mods));
+      if (std::strcmp(accel_path, "<KC-Keyboard>/Capture") == 0)
+        input_window.set_capture_hotkey(accel_key, Gdk::ModifierType(accel_mods));
+
+      input_window.accel_map_changed();
+    }
   }
   catch (...)
   {
@@ -153,6 +159,20 @@ static void on_accel_capture_changed(GtkAccelMap*, char* accel_path,
   }
 }
 } // extern "C"
+
+static bool save_accel_config()
+{
+  try
+  {
+    Gtk::AccelMap::save(Glib::build_filename(Util::make_config_dir(), accels_filename));
+  }
+  catch (const Glib::FileError& error)
+  {
+    const Glib::ustring message = error.what();
+    g_warning("Failed to save configuration: %s", message.c_str());
+  }
+  return false; // disconnect idle handler
+}
 
 } // anonymous namespace
 
@@ -204,7 +224,9 @@ InputWindow::InputWindow(Controller& controller)
 }
 
 InputWindow::~InputWindow()
-{}
+{
+  accel_save_connection_.disconnect();
+}
 
 void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods)
 {
@@ -240,6 +262,12 @@ void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType a
                              Glib::unwrap(action_capture_));
     hotkey.swap(hotkey_);
   }
+}
+
+void InputWindow::accel_map_changed()
+{
+  if (accel_connection_ && !accel_save_connection_)
+    accel_save_connection_ = Glib::signal_idle().connect(&save_accel_config);
 }
 
 void InputWindow::on_realize()
@@ -440,9 +468,8 @@ void InputWindow::init_ui_actions()
 {
   GtkAccelMap *const accel_map = gtk_accel_map_get();
 
-  AutoConnection accel_connection (accel_map,
-      g_signal_connect(accel_map, "changed::<KC-Keyboard>/Capture",
-                       G_CALLBACK(&on_accel_capture_changed), this));
+  AutoConnection accel_connection
+    (accel_map, g_signal_connect(accel_map, "changed", G_CALLBACK(&on_accel_map_changed), this));
 
   const Glib::RefPtr<Gtk::ActionGroup> group = Gtk::ActionGroup::create("KC-Keyboard");
 
@@ -457,6 +484,8 @@ void InputWindow::init_ui_actions()
   group->add(Gtk::Action::create("About", Gtk::Stock::ABOUT),
              sigc::mem_fun(*this, &InputWindow::on_action_about));
 
+  Gtk::AccelMap::load(Glib::build_filename(Util::locate_config_dir(), accels_filename));
+
   ui_manager_->insert_action_group(group);
   add_accel_group(ui_manager_->get_accel_group());
 
@@ -470,30 +499,11 @@ void InputWindow::init_ui_actions()
 
 void InputWindow::read_keymap_config()
 {
+  static const char sections[KEYBOARD_COUNT][8] = { "Raw", "CAOS", "CP/M", "TPKC" };
+
   Glib::KeyFile keyfile;
   keyfile.load_from_file(Util::locate_data_file("keymap.conf"));
 
-  try
-  {
-    const Glib::ustring group = "Hotkeys";
-    const std::vector<Glib::ustring> keys = keyfile.get_keys(group);
-
-    for (std::vector<Glib::ustring>::const_iterator p = keys.begin(); p != keys.end(); ++p)
-    {
-      const Glib::ustring signature  = keyfile.get_value(group, *p);
-      unsigned int        accel_key  = GDK_VoidSymbol;
-      Gdk::ModifierType   accel_mods = Gdk::ModifierType(0);
-
-      Gtk::AccelGroup::parse(signature, accel_key, accel_mods);
-      Gtk::AccelMap::change_entry("<KC-Keyboard>/" + *p, accel_key, accel_mods, true);
-    }
-  }
-  catch (const Glib::KeyFileError& error)
-  {
-    warn_on_keyfile_error(error);
-  }
-
-  static const char sections[KEYBOARD_COUNT][8] = { "Raw", "CAOS", "CP/M", "TPKC" };
   g_assert(keymaps_.size() == KEYBOARD_COUNT);
 
   for (unsigned int i = KEYBOARD_RAW; i < KEYBOARD_COUNT; ++i)

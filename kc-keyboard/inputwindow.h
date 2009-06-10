@@ -78,6 +78,7 @@ public:
   AutoConnection(void* instance, unsigned long id) : instance_ (instance), id_ (id) {}
   ~AutoConnection();
   void swap(AutoConnection& b) { std::swap(instance_, b.instance_); std::swap(id_, b.id_); }
+  operator const void*() const { return static_cast<const char*>(0) + id_; }
 };
 
 inline void swap(AutoConnection& a, AutoConnection& b) { a.swap(b); }
@@ -110,6 +111,7 @@ public:
   virtual ~InputWindow();
 
   void set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType accel_mods);
+  void accel_map_changed();
 
 protected:
   virtual void on_realize();
@@ -124,6 +126,7 @@ private:
   typedef std::set<MappedKey, MappedKey::SortPredicate> KeyMap;
 
   Controller&                         controller_;
+  sigc::connection                    accel_save_connection_;
   std::vector<KeyMap>                 keymaps_;
   Glib::RefPtr<Gtk::StatusIcon>       status_icon_;
   Glib::RefPtr<Gtk::UIManager>        ui_manager_;
