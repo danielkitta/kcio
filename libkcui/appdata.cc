@@ -20,6 +20,7 @@
 
 #include <glibmm.h>
 #include <glib.h>
+#include <cerrno>
 
 std::string Util::locate_data_file(const std::string& basename)
 {
@@ -35,4 +36,24 @@ std::string Util::locate_data_file(const std::string& basename)
 #else
   return Glib::build_filename(KCIO_PKGDATADIR, basename);
 #endif
+}
+
+std::string Util::locate_config_dir()
+{
+  return Glib::build_filename(Glib::get_user_config_dir(), PACKAGE_TARNAME);
+}
+
+std::string Util::make_config_dir()
+{
+  const std::string config_dir = Util::locate_config_dir();
+
+  if (g_mkdir_with_parents(config_dir.c_str(), 0755) < 0)
+  {
+    const int err_no = errno;
+    throw Glib::FileError(Glib::FileError::Code(g_file_error_from_errno(err_no)),
+                          Glib::ustring::compose("Creating directory \"%1\" failed: %2",
+                                                 Glib::filename_display_name(config_dir),
+                                                 Glib::strerror(err_no)));
+  }
+  return config_dir;
 }

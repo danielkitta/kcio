@@ -24,6 +24,8 @@ namespace Util
 {
 
 std::string locate_data_file(const std::string& basename);
+std::string locate_config_dir();
+std::string make_config_dir();
 
 } // namespace Util
 
