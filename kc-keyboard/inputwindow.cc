@@ -216,7 +216,7 @@ InputWindow::InputWindow(Controller& controller)
 
   status_icon_->set_tooltip("KC-Keyboard");
   set_title("KC-Keyboard");
-  set_size_request(500, 250);
+  set_resizable(false);
   set_position(Gtk::WIN_POS_CENTER);
 
   init_ui_actions();
@@ -270,6 +270,20 @@ void InputWindow::accel_map_changed()
     accel_save_connection_ = Glib::signal_idle().connect(&save_accel_config);
 }
 
+void InputWindow::on_size_allocate(Gtk::Allocation& allocation)
+{
+  Gtk::Window::on_size_allocate(allocation);
+
+  if (is_realized())
+    update_window_shape();
+}
+
+void InputWindow::on_size_request(Gtk::Requisition* requisition)
+{
+  requisition->width  = 500;
+  requisition->height = 250;
+}
+
 void InputWindow::on_realize()
 {
   key_image_  = render_image_surface("enter-key.svg", Cairo::FORMAT_ARGB32);
@@ -317,9 +331,8 @@ void InputWindow::update_window_shape()
   {
     gdk_window_input_shape_combine_region(window->gobj(), 0, 0, 0);
 
-    int width  = 0;
-    int height = 0;
-    window->get_size(width, height);
+    int width  = get_width();
+    int height = get_height();
 
     // There is no Gdk::Bitmap::create() to create an empty bitmap in gdkmm.
     const Glib::RefPtr<Gdk::Bitmap> bitmap = Glib::RefPtr<Gdk::Bitmap>

@@ -114,6 +114,8 @@ public:
   void accel_map_changed();
 
 protected:
+  virtual void on_size_allocate(Gtk::Allocation& allocation);
+  virtual void on_size_request(Gtk::Requisition* requisition);
   virtual void on_realize();
   virtual void on_screen_changed(const Glib::RefPtr<Gdk::Screen>& previous_screen);
   virtual bool on_key_press_event(GdkEventKey* event);
