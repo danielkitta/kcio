@@ -142,7 +142,7 @@ private:
   void read_keymap_config();
   void bind_hotkey(const Glib::ustring& signature);
   std::string translate_scancode(unsigned int keycode);
-  std::string translate_keyval(const GdkEventKey* event);
+  std::string translate_keyval(const GdkEventKey& event);
 
   void set_rgba_colormap();
   void update_window_shape();

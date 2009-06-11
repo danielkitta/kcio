@@ -206,8 +206,10 @@ InputWindow::InputWindow(Controller& controller)
   set_app_paintable(true);
   set_rgba_colormap();
 
-  signal_composited_changed().connect(sigc::mem_fun(*this, &InputWindow::on_composited_changed));
-  signal_grab_broken_event() .connect(sigc::mem_fun(*this, &InputWindow::on_grab_broken_event));
+  signal_composited_changed()
+    .connect(sigc::mem_fun(*this, &InputWindow::on_composited_changed), false);
+  signal_grab_broken_event()
+    .connect(sigc::mem_fun(*this, &InputWindow::on_grab_broken_event), false);
 
   status_icon_->signal_activate() // this hack is fugly and it's Murray's fault
     .connect(sigc::mem_fun(*action_capture_.operator->(), &Gtk::Action::activate));
@@ -242,6 +244,7 @@ void InputWindow::set_capture_hotkey(unsigned int accel_key, Gdk::ModifierType a
     {
       g_warning("%s", error->message);
       g_error_free(error);
+      error = 0;
     }
   }
 
@@ -357,7 +360,7 @@ bool InputWindow::on_key_press_event(GdkEventKey* event)
 {
   const std::string kcseq = (controller_.get_mode() == KEYBOARD_RAW)
                             ? translate_scancode(event->hardware_keycode)
-                            : translate_keyval(event);
+                            : translate_keyval(*event);
   if (!kcseq.empty())
   {
     if (!controller_.send_key_codes(kcseq))
@@ -502,7 +505,7 @@ void InputWindow::init_ui_actions()
   ui_manager_->insert_action_group(group);
   add_accel_group(ui_manager_->get_accel_group());
 
-  ui_manager_->add_ui_from_string("<popup name='Menu'>"
+  ui_manager_->add_ui_from_string("<popup name='StatusMenu'>"
                                     "<menuitem action='Capture'/>"
                                     "<menuitem action='About'/>"
                                     "<menuitem action='Quit'/>"
@@ -554,11 +557,11 @@ std::string InputWindow::translate_scancode(unsigned int keycode)
   return std::string();
 }
 
-std::string InputWindow::translate_keyval(const GdkEventKey* event)
+std::string InputWindow::translate_keyval(const GdkEventKey& event)
 {
   const Gdk::ModifierType modmask = Gtk::AccelGroup::get_default_mod_mask();
-  Gdk::ModifierType       state   = Gdk::ModifierType(event->state);
-  unsigned int            keyval  = event->keyval;
+  Gdk::ModifierType       state   = Gdk::ModifierType(event.state);
+  unsigned int            keyval  = event.keyval;
 
   if ((state & Gdk::MOD2_MASK) == 0 || !(keyval >= GDK_KP_Multiply && keyval <= GDK_KP_Divide))
   {
@@ -575,9 +578,9 @@ std::string InputWindow::translate_keyval(const GdkEventKey* event)
     while (mode-- == KEYBOARD_TPKC);
   }
   gdk_keymap_translate_keyboard_state(get_display()->get_keymap(),
-                                      event->hardware_keycode,
+                                      event.hardware_keycode,
                                       GdkModifierType((state ^ Gdk::LOCK_MASK) | Gdk::MOD2_MASK),
-                                      event->group, &keyval, 0, 0, 0);
+                                      event.group, &keyval, 0, 0, 0);
 
   if (const unsigned int uc = gdk_keyval_to_unicode(keyval))
     switch (state & modmask & ~Gdk::SHIFT_MASK)
@@ -616,7 +619,7 @@ void InputWindow::on_action_about()
 
 void InputWindow::on_status_popup_menu(unsigned int button, guint32 activate_time)
 {
-  if (Gtk::Menu *const menu = dynamic_cast<Gtk::Menu*>(ui_manager_->get_widget("/Menu")))
+  if (Gtk::Menu *const menu = dynamic_cast<Gtk::Menu*>(ui_manager_->get_widget("/StatusMenu")))
   {
     // Prevent the popup menu from breaking the input window's keyboard grab.
     menu->set_take_focus(!action_capture_->get_active());
