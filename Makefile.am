@@ -33,6 +33,7 @@ libkc_libkc_a_SOURCES =	\
 	libkc/libkc.h
 
 libkcui_libkcui_a_SOURCES =	\
+	libkcui/aboutdialog.cc	\
 	libkcui/appdata.cc	\
 	libkcui/libkcui.h
 

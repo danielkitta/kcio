@@ -18,7 +18,10 @@
 #ifndef LIBKC_LIBKCUI_H_INCLUDED
 #define LIBKC_LIBKCUI_H_INCLUDED
 
+#include <memory>
 #include <string>
+
+namespace Gtk { class AboutDialog; }
 
 namespace Util
 {
@@ -26,6 +29,8 @@ namespace Util
 std::string locate_data_file(const std::string& basename);
 std::string locate_config_dir();
 std::string make_config_dir();
+
+std::auto_ptr<Gtk::AboutDialog> create_about_dialog();
 
 } // namespace Util
 
