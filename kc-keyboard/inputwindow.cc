@@ -23,6 +23,7 @@
 #include <libkcui/libkcui.h>
 #include <glibmm.h>
 #include <cairomm/cairomm.h>
+#include <gtkmm/aboutdialog.h>
 #include <gtkmm/accelgroup.h>
 #include <gtkmm/accelmap.h>
 #include <gtkmm/main.h>
@@ -614,7 +615,28 @@ void InputWindow::on_action_capture()
 
 void InputWindow::on_action_about()
 {
-  g_printerr("%s\n", __PRETTY_FUNCTION__);
+  if (about_dialog_.get())
+  {
+    about_dialog_->present();
+  }
+  else
+  {
+    std::auto_ptr<Gtk::AboutDialog> dialog = Util::create_about_dialog();
+
+    dialog->set_logo_icon_name("kc-keyboard");
+    dialog->set_comments("Virtual keyboard for the KC 85 V.24 interface");
+
+    dialog->show();
+    dialog->signal_response().connect(sigc::mem_fun(*this, &InputWindow::on_about_dialog_response));
+
+    about_dialog_ = dialog;
+  }
+}
+
+void InputWindow::on_about_dialog_response(int)
+{
+  // Transfer ownership to local scope.
+  const std::auto_ptr<Gtk::Dialog> temp (about_dialog_);
 }
 
 void InputWindow::on_status_popup_menu(unsigned int button, guint32 activate_time)

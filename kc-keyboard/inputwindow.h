@@ -24,12 +24,14 @@
 #include <cairomm/cairomm.h>
 #include <gdkmm.h>
 #include <gtkmm/actiongroup.h>
+#include <gtkmm/dialog.h>
 #include <gtkmm/statusicon.h>
 #include <gtkmm/toggleaction.h>
 #include <gtkmm/uimanager.h>
 #include <gtkmm/window.h>
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -137,6 +139,7 @@ private:
   Cairo::RefPtr<Cairo::ImageSurface>  key_image_;
   Cairo::RefPtr<Cairo::ImageSurface>  logo_image_;
   AutoConnection                      accel_connection_;
+  std::auto_ptr<Gtk::Dialog>          about_dialog_;
 
   void init_ui_actions();
   void read_keymap_config();
@@ -151,6 +154,7 @@ private:
   void on_status_popup_menu(unsigned int button, guint32 activate_time);
   void on_action_capture();
   void on_action_about();
+  void on_about_dialog_response(int);
 };
 
 } // namespace KC
