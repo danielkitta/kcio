@@ -1,0 +1,21 @@
+The KC-I/O suite
+================
+
+KC-I/O is a suite of utility programs for interfacing with the KC 85
+series of home computers produced in East Germany during the 1980s.
+Both command line utilities and graphical desktop applications are
+included. The main target platform is the modern Linux desktop.
+
+Command-line utilities
+----------------------
+
+kcplay       - direct playback of memory image files as tape audio stream
+kcrec        - direct decoding of tape audio streams to memory image files
+kcsend       - transfer of memory images to a KC 85 through V.24 interface
+kcterm       - simple V.24 terminal application to remote-control a KC 85
+
+Interactive desktop applications
+--------------------------------
+
+kc-control   - integrated user interface for communicating with a KC 85
+kc-keyboard  - virtual keyboard with V.24 interface for the KC 85/4
