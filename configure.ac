@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License along
 ## with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([KC-IO], [0.1], [daniel.kitta@gmail.com], [kcio])
+AC_INIT([KC-I/O], [0.1], [daniel.kitta@gmail.com], [kcio])
 AC_PREREQ([2.60])
 
 AC_CONFIG_SRCDIR([libkc/libkc.h])
@@ -47,7 +47,7 @@ PKG_CHECK_MODULES([KCIO_MODULES],
   [alsa >= 1.0 librsvg-2.0 >= 2.14 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
 PKG_CHECK_MODULES([KC_CONTROL_MODULES], [alsa gtkmm-2.4])
 PKG_CHECK_MODULES([KC_KEYBOARD_MODULES], [librsvg-2.0 gtkhotkey-1.0 gtkmm-2.4])
-PKG_CHECK_MODULES([KCREC_MODULES],  [alsa])
+PKG_CHECK_MODULES([KCREC_MODULES], [alsa])
 DK_PKG_PATH_PROG([GTK_UPDATE_ICON_CACHE], [gtk+-2.0], [gtk-update-icon-cache])
 
 AC_TYPE_SSIZE_T
