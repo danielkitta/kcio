@@ -102,9 +102,8 @@ int main(int argc, char** argv)
     options.reset();
     KC::InputWindow window (controller);
 
-    window.set_auto_startup_notification(false);
-    Glib::signal_idle().connect(sigc::bind_return(&gdk_notify_startup_complete, false),
-                                Glib::PRIORITY_LOW);
+    Gtk::Window::set_auto_startup_notification(false);
+    Glib::signal_idle().connect(sigc::bind_return(&gdk_notify_startup_complete, false));
     Gtk::Main::run();
 
     controller.shutdown();
@@ -119,15 +118,15 @@ int main(int argc, char** argv)
   catch (const Glib::Error& error)
   {
     const Glib::ustring what = error.what();
-    g_error("unhandled exception: %s", what.c_str());
+    g_error("Unhandled exception: %s", what.c_str());
   }
   catch (const std::exception& ex)
   {
-    g_error("unhandled exception: %s", ex.what());
+    g_error("Unhandled exception: %s", ex.what());
   }
   catch (...)
   {
-    g_error("unhandled exception: (type unknown)");
+    g_error("Unhandled exception (type unknown)");
   }
   return 1;
 }
