@@ -615,6 +615,8 @@ void InputWindow::on_action_capture()
 
 void InputWindow::on_action_about()
 {
+  action_capture_->set_active(false);
+
   if (about_dialog_.get())
   {
     about_dialog_->present();
