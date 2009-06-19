@@ -22,8 +22,8 @@
 #include "inputwindow.h"
 #include <glibmm.h>
 #include <gtkmm/main.h>
+#include <librsvgmm/rsvg.h>
 #include <glib.h>
-#include <librsvg/rsvg.h>
 #include <locale>
 #include <memory>
 #include <stdexcept>
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
     init_locale();
     std::auto_ptr<CmdlineOptions> options (new CmdlineOptions());
     Gtk::Main kit (argc, argv, options->context());
-    rsvg_init();
+    Rsvg::init();
 
     Glib::set_application_name("KC-Keyboard");
     Gtk::Window::set_default_icon_name("kc-keyboard");
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
     Gtk::Main::run();
 
     controller.shutdown();
-    rsvg_term();
+    Rsvg::term();
     return 0;
   }
   catch (const Glib::OptionError& error)

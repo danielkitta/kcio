@@ -28,6 +28,7 @@
 #include <gtkmm/accelmap.h>
 #include <gtkmm/main.h>
 #include <gtkmm/stock.h>
+#include <librsvgmm/rsvg.h>
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -36,8 +37,6 @@
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 #include <gtkhotkey.h>
-#include <librsvg/rsvg.h>
-#include <librsvg/rsvg-cairo.h>
 
 namespace
 {
@@ -73,30 +72,18 @@ KC::MappedKey LookupMappedKey::operator()(const Glib::ustring& keyname) const
 static Cairo::RefPtr<Cairo::ImageSurface>
 render_image_surface(const std::string& basename, Cairo::Format format)
 {
-  const std::string filename = Util::locate_data_file(basename);
-  GError* error = 0;
-  const KC::GObjectPtr<RsvgHandle> svg (rsvg_handle_new_from_file(filename.c_str(), &error));
+  const Glib::RefPtr<Rsvg::Handle>
+    svg = Rsvg::Handle::create_from_file(Util::locate_data_file(basename));
 
-  if (!svg)
-  {
-    g_warning("%s", error->message);
-    g_error_free(error);
-    return Cairo::RefPtr<Cairo::ImageSurface>();
-  }
-  RsvgDimensionData dims = { 0, 0, 0.0, 0.0 };
-  rsvg_handle_get_dimensions(svg.get(), &dims);
+  Rsvg::DimensionData dim;
+  svg->get_dimensions(dim);
 
   const Cairo::RefPtr<Cairo::ImageSurface>
-    surface = Cairo::ImageSurface::create(format, dims.width, dims.height);
+    surface = Cairo::ImageSurface::create(format, dim.width, dim.height);
 
-  const Cairo::RefPtr<Cairo::Context> context = Cairo::Context::create(surface);
-  rsvg_handle_render_cairo(svg.get(), context->cobj());
+  svg->render(Cairo::Context::create(surface));
+  svg->close();
 
-  if (!rsvg_handle_close(svg.get(), &error))
-  {
-    g_warning("%s", error->message);
-    g_error_free(error);
-  }
   return surface;
 }
 
@@ -290,9 +277,16 @@ void InputWindow::on_size_request(Gtk::Requisition* requisition)
 
 void InputWindow::on_realize()
 {
-  key_image_  = render_image_surface("enter-key.svg", Cairo::FORMAT_ARGB32);
-  logo_image_ = render_image_surface("keyboard-logo.svg", Cairo::FORMAT_A8);
-
+  try
+  {
+    key_image_  = render_image_surface("enter-key.svg", Cairo::FORMAT_ARGB32);
+    logo_image_ = render_image_surface("keyboard-logo.svg", Cairo::FORMAT_A8);
+  }
+  catch (const Glib::Error& error)
+  {
+    const Glib::ustring message = error.what();
+    g_warning("%s", message.c_str());
+  }
   Gtk::Window::on_realize();
 
   get_window()->unset_back_pixmap();
