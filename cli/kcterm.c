@@ -119,10 +119,13 @@ init_screen(void)
 }
 
 static void
-exit_error(const char* where)
+exit_error(const char* where, int err_no)
 {
   destroy_screen();
-  perror(where);
+
+  const char* what = strerror(err_no);
+
+  fprintf(stderr, "%s: %s\n", where, (what) ? what : "unknown error");
   exit(1);
 }
 
@@ -137,7 +140,7 @@ send_bytes(int portfd, const unsigned char* buf, int n, WINDOW* win)
     if (rc >= 0)
       written += rc;
     else if (errno != EINTR)
-      exit_error("send bytes");
+      exit_error("send bytes", errno);
   }
 
   int xmax, ymax;
@@ -181,7 +184,7 @@ send_bytes(int portfd, const unsigned char* buf, int n, WINDOW* win)
   while (tcdrain(portfd) < 0)
   {
     if (errno != EINTR)
-      exit_error("send bytes");
+      exit_error("send bytes", errno);
   }
 }
 
@@ -191,7 +194,7 @@ init_serial_port(int portfd, const char* portname)
   struct termios portattr;
 
   if (tcgetattr(portfd, &portattr) < 0)
-    exit_error(portname);
+    exit_error(portname, errno);
 
   portattr.c_iflag &= ~(BRKINT | ISTRIP | INLCR | ICRNL | IXON | IXOFF);
   portattr.c_iflag |= INPCK | IGNBRK | IGNPAR | PARMRK | IGNCR;
@@ -210,9 +213,9 @@ init_serial_port(int portfd, const char* portname)
   cfsetispeed(&portattr, BAUDRATE_KEYBOARD);
   cfsetospeed(&portattr, BAUDRATE_KEYBOARD);
 
-  if (tcsetattr(portfd, TCSAFLUSH, &portattr) < 0 ||
-      tcgetattr(portfd, &portattr) < 0)
-    exit_error(portname);
+  if (tcsetattr(portfd, TCSAFLUSH, &portattr) < 0
+      || tcgetattr(portfd, &portattr) < 0)
+    exit_error(portname, errno);
 
   if ((portattr.c_cflag & (CSIZE | CSTOPB | PARENB | CRTSCTS)) != (CS8 | CRTSCTS)
       || cfgetispeed(&portattr) != BAUDRATE_KEYBOARD
@@ -241,7 +244,7 @@ receive_kctext(int portfd, WINDOW* win)
       case EAGAIN:
         return;
       default:
-        exit_error("receive KC text");
+        exit_error("receive KC text", errno);
     }
 
   cchar_t cc;
@@ -326,7 +329,7 @@ input_loop(int portfd)
     if (rc <= 0)
     {
       if (rc < 0 && errno != EINTR)
-        exit_error("select");
+        exit_error("select", errno);
       continue;
     }
 
@@ -364,13 +367,13 @@ main(int argc, char** argv)
 
   int portfd = open(portname, O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (portfd < 0)
-    exit_error(portname);
+    exit_error(portname, errno);
 
   init_serial_port(portfd, portname);
 
   int flags = fcntl(portfd, F_GETFL, 0);
   if (flags < 0 || fcntl(portfd, F_SETFL, flags & ~O_NONBLOCK) < 0)
-    exit_error(portname);
+    exit_error(portname, errno);
 
   wprintw(win_header, "Using serial port %s.\nPress CTRL-D to quit.", portname);
   waddch(win_prompt, '>');
@@ -383,7 +386,7 @@ main(int argc, char** argv)
 
   while (close(portfd) < 0)
     if (errno != EINTR)
-      exit_error(portname);
+      exit_error(portname, errno);
 
   destroy_screen();
   return 0;
