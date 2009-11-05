@@ -206,7 +206,7 @@ InputWindow::InputWindow(Controller& controller)
   status_icon_->signal_popup_menu()
     .connect(sigc::mem_fun(*this, &InputWindow::on_status_popup_menu));
 
-  status_icon_->set_tooltip("KC-Keyboard");
+  status_icon_->set_tooltip_text("KC-Keyboard");
   set_title("KC-Keyboard");
   set_resizable(false);
   set_position(Gtk::WIN_POS_CENTER);
