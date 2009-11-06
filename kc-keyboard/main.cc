@@ -103,7 +103,7 @@ int main(int argc, char** argv)
     KC::InputWindow window (controller);
 
     Gtk::Window::set_auto_startup_notification(false);
-    Glib::signal_idle().connect(sigc::bind_return(&gdk_notify_startup_complete, false));
+    Glib::signal_idle().connect_once(&gdk_notify_startup_complete);
     Gtk::Main::run();
 
     controller.shutdown();
