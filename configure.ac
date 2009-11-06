@@ -40,6 +40,7 @@ The system does not support the POSIX termios interface.
 
 IT_PROG_INTLTOOL([0.35])
 AC_SUBST([GETTEXT_PACKAGE], [kcio])
+AM_GNU_GETTEXT_VERSION([0.11])
 AM_GLIB_GNU_GETTEXT
 
 DK_MODULE_CURSES

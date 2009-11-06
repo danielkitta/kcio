@@ -2,9 +2,7 @@
 test -n "$srcdir" || srcdir=`dirname "$0"`
 test -n "$srcdir" || srcdir=.
 (
-  cd "$srcdir"
-  export AUTOPOINT=glib-gettextize
-  intltoolize --copy --force
-  autoreconf --force --install
-)
+  cd "$srcdir" &&
+  AUTOPOINT='intltoolize --automake --copy' autoreconf --force --install
+) || exit
 test -n "$NOCONFIGURE" || "$srcdir/configure" "$@"
