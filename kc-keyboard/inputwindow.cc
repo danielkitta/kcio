@@ -131,11 +131,13 @@ static void on_accel_map_changed(GtkAccelMap*, char* accel_path,
 {
   try
   {
-    if (g_str_has_prefix(accel_path, "<KC-Keyboard>"))
+    static const char prefix[] = "<KC-Keyboard>/";
+
+    if (std::strncmp(accel_path, prefix, sizeof(prefix) - 1) == 0)
     {
       KC::InputWindow& input_window = *static_cast<KC::InputWindow*>(user_data);
 
-      if (std::strcmp(accel_path, "<KC-Keyboard>/Capture") == 0)
+      if (std::strcmp(&accel_path[sizeof(prefix) - 1], "Capture") == 0)
         input_window.set_capture_hotkey(accel_key, Gdk::ModifierType(accel_mods));
 
       input_window.accel_map_changed();
