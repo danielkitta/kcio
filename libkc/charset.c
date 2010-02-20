@@ -15,7 +15,7 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
+#include <build/config.h>
 #include "libkc.h"
 
 static const unsigned short kc2wchar_table[128] =

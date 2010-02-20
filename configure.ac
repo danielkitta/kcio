@@ -1,4 +1,4 @@
-## Copyright (c) 2008-2009  Daniel Elstner <daniel.kitta@gmail.com>
+## Copyright (c) 2008-2010  Daniel Elstner <daniel.kitta@gmail.com>
 ##
 ## This file is part of KC-I/O.
 ##
@@ -15,14 +15,15 @@
 ## You should have received a copy of the GNU General Public License along
 ## with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([KC-I/O], [0.1], [daniel.kitta@gmail.com], [kcio])
+AC_INIT([KC-I/O], [0.1], [daniel.kitta@gmail.com], [kcio], [http://github.com/danielkitta/kcio])
 AC_PREREQ([2.60])
 
 AC_CONFIG_SRCDIR([libkc/libkc.h])
-AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_AUX_DIR([build])
+AC_CONFIG_MACRO_DIR([build])
+AC_CONFIG_HEADERS([build/config.h])
 
-AM_INIT_AUTOMAKE([1.8 -Wall gnu no-define check-news])
+AM_INIT_AUTOMAKE([1.9 -Wall check-news no-define nostdinc])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_ARG_VAR([ACLOCAL_FLAGS], [aclocal flags, e.g. -I <macro dir>])
 
@@ -34,6 +35,7 @@ AC_PROG_RANLIB
 
 AC_LANG_ASSERT([C])
 AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
 AC_SYS_POSIX_TERMIOS
 AS_IF([test "x$ac_cv_sys_posix_termios" != xyes], [AC_MSG_ERROR([[
 The system does not support the POSIX termios interface.

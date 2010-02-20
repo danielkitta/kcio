@@ -17,7 +17,7 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
+#include <build/config.h>
 #include "controller.h"
 #include <glibmm.h>
 #include <cerrno>

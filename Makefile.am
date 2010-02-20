@@ -1,6 +1,6 @@
-## Copyright (c) 2008-2009  Daniel Elstner <daniel.kitta@gmail.com>
+## Copyright (c) 2008-2010  Daniel Elstner <daniel.kitta@gmail.com>
 ##
-## This file is part of KC-IO.
+## This file is part of KC-I/O.
 ##
 ## KC-IO is free software: you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by the
@@ -15,13 +15,8 @@
 ## You should have received a copy of the GNU General Public License along
 ## with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-## This project does not use recursive make, but a single toplevel Makefile
-## to build the entire tree.  Read Peter Miller's excellent paper to learn
-## why recursive make invocations are both slow and error-prone:
-## http://members.pcug.org.au/~millerp/rmch/recu-make-cons-harm.html
-
 AUTOMAKE_OPTIONS = subdir-objects
-ACLOCAL_AMFLAGS  = -I m4 ${ACLOCAL_FLAGS}
+ACLOCAL_AMFLAGS  = -I build ${ACLOCAL_FLAGS}
 DISTCHECK_CONFIGURE_FLAGS = --enable-warnings=fatal
 
 SUBDIRS = po
@@ -65,7 +60,7 @@ kc_control_kc_control_SOURCES =	\
 # The location of the gettext catalogs as defined by intltool.
 kclocaledir = $(prefix)/$(DATADIRNAME)/locale
 global_defs = -DKCIO_LOCALEDIR=\""$(kclocaledir)"\" -DKCIO_PKGDATADIR=\""$(pkgdatadir)"\"
-AM_CPPFLAGS = $(global_defs) $(CURSES_CFLAGS) $(KCIO_MODULES_CFLAGS)
+AM_CPPFLAGS = -I. -I$(top_srcdir) $(global_defs) $(CURSES_CFLAGS) $(KCIO_MODULES_CFLAGS)
 AM_CFLAGS   = $(KCIO_WFLAGS)
 AM_CXXFLAGS = $(KCIO_WXXFLAGS)
 
