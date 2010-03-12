@@ -48,9 +48,9 @@ AM_GLIB_GNU_GETTEXT
 
 DK_MODULE_CURSES
 PKG_CHECK_MODULES([KCIO_MODULES],
-  [alsa >= 1.0 librsvgmm-2.0 >= 2.14 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
+  [alsa >= 1.0 libudev++1 librsvgmm-2.0 >= 2.14 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
 PKG_CHECK_MODULES([KC_CONTROL_MODULES], [alsa gtkmm-2.4])
-PKG_CHECK_MODULES([KC_KEYBOARD_MODULES], [librsvgmm-2.0 gtkhotkey-1.0 gtkmm-2.4])
+PKG_CHECK_MODULES([KC_KEYBOARD_MODULES], [libudev++1 librsvgmm-2.0 gtkhotkey-1.0 gtkmm-2.4])
 PKG_CHECK_MODULES([KCREC_MODULES], [alsa])
 DK_PKG_PATH_PROG([GTK_UPDATE_ICON_CACHE], [gtk+-2.0], [gtk-update-icon-cache])
 

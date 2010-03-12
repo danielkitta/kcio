@@ -19,16 +19,21 @@
 
 #include <build/config.h>
 #include "controller.h"
+#include "devicepool.h"
 #include "inputwindow.h"
 #include <glibmm.h>
 #include <gtkmm/main.h>
 #include <librsvgmm/rsvg.h>
+#include <libudev++.h>
 #include <glib.h>
 #include <locale>
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <tr1/functional>
 #include <glib/gi18n.h>
+
+using namespace std::tr1::placeholders;
 
 namespace
 {
@@ -97,6 +102,11 @@ int main(int argc, char** argv)
 
     Glib::set_application_name("KC-Keyboard");
     Gtk::Window::set_default_icon_name("kc-keyboard");
+
+    Udev::Client udev ("tty");
+    KC::DevicePool pool;
+    udev.set_uevent_handler(std::tr1::bind(&KC::DevicePool::uevent, &pool, _1, _2));
+    udev.enumerate();
 
     KC::Controller controller (options->portname());
     options.reset();

@@ -496,7 +496,10 @@ void InputWindow::init_ui_actions()
 
   group->add(Gtk::Action::create("About", Gtk::Stock::ABOUT),
              sigc::mem_fun(*this, &InputWindow::on_action_about));
-
+#if 0
+  group->add(action_disconnected_,
+             sigc::mem_fun(*this, &InputWindow::on_action_disconnected));
+#endif
   Gtk::AccelMap::load(Glib::build_filename(Util::locate_config_dir(), accels_filename));
 
   ui_manager_->insert_action_group(group);
@@ -506,6 +509,9 @@ void InputWindow::init_ui_actions()
                                     "<menuitem action='Capture'/>"
                                     "<menuitem action='About'/>"
                                     "<menuitem action='Quit'/>"
+                                    "<separator/>"
+                                    "<menuitem action='Disconnected'/>"
+                                    "<placeholder name='Ports'/>"
                                   "</popup>");
   accel_connection_.swap(accel_connection);
 }

@@ -48,6 +48,8 @@ cli_kcterm_SOURCES = cli/kcterm.c
 kc_keyboard_kc_keyboard_SOURCES =	\
 	kc-keyboard/controller.cc	\
 	kc-keyboard/controller.h	\
+	kc-keyboard/devicepool.cc	\
+	kc-keyboard/devicepool.h	\
 	kc-keyboard/inputwindow.cc	\
 	kc-keyboard/inputwindow.h	\
 	kc-keyboard/main.cc		\
