@@ -267,7 +267,7 @@ void InputWindow::on_size_allocate(Gtk::Allocation& allocation)
 {
   Gtk::Window::on_size_allocate(allocation);
 
-  if (is_realized())
+  if (get_realized())
     update_window_shape();
 }
 
@@ -307,7 +307,7 @@ void InputWindow::on_screen_changed(const Glib::RefPtr<Gdk::Screen>& previous_sc
 
 void InputWindow::set_rgba_colormap()
 {
-  if (!is_realized() && has_screen())
+  if (!get_realized() && has_screen())
   {
     const Glib::RefPtr<Gdk::Screen> screen = get_screen();
     const Glib::RefPtr<Gdk::Colormap> colormap =
@@ -484,7 +484,7 @@ void InputWindow::on_composited_changed()
 {
   set_rgba_colormap();
 
-  if (is_realized())
+  if (get_realized())
     update_window_shape();
 }
 
