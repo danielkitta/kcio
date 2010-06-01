@@ -370,6 +370,20 @@ bool InputWindow::on_key_press_event(GdkEventKey* event)
 
 bool InputWindow::on_key_release_event(GdkEventKey* event)
 {
+  const Glib::RefPtr<Gdk::Display> display = get_display();
+
+  if (GdkEvent *const next = display->get_event())
+  {
+    const Gdk::Event temp (next, false); // assume ownership
+
+    display->put_event(next);
+
+    if (next->type == GDK_KEY_PRESS
+        && next->key.time == event->time
+        && next->key.hardware_keycode == event->hardware_keycode)
+      return true; // skip auto-repeat release event
+  }
+
   if (controller_.get_mode() == KEYBOARD_RAW)
   {
     const std::string scancode = translate_scancode(event->hardware_keycode);
@@ -378,6 +392,15 @@ bool InputWindow::on_key_release_event(GdkEventKey* event)
     {
       if (controller_.break_enabled_for_key(*scancode.begin()))
         controller_.send_key_codes('\xF0' + scancode);
+
+      return true; // handled
+    }
+  }
+  else
+  {
+    if (!event->is_modifier)
+    {
+      controller_.send_key_codes(std::string(1, '\x00'));
 
       return true; // handled
     }
