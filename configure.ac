@@ -46,7 +46,7 @@ AC_SUBST([GETTEXT_PACKAGE], [kcio])
 AM_GNU_GETTEXT_VERSION([0.11])
 AM_GLIB_GNU_GETTEXT
 
-DK_MODULE_CURSES
+DK_MODULE_CURSES([require-wchar])
 PKG_CHECK_MODULES([KCIO_MODULES],
   [alsa >= 1.0 libudev++1 librsvgmm-2.0 >= 2.14 gtkhotkey-1.0 >= 0.2 gtkmm-2.4 >= 2.12])
 PKG_CHECK_MODULES([KC_CONTROL_MODULES], [alsa gtkmm-2.4])
