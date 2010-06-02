@@ -48,16 +48,12 @@ KC::DeviceInfo make_device_info(const Udev::Device& device)
     else
       std::replace(name.begin(), name.end(), '_', ' ');
   }
-  std::string path = device.get_property("ID_PATH");
-  if (path.empty())
-    path = "unknown";
 
-  const std::string port = device.get_property("ID_PORT");
-  if (!port.empty())
-  {
-    path += "-port";
-    path += port;
-  }
+  static const char prefix[] = "/sys/devices/";
+  std::string path = device.get_sys_path();
+  if (path.compare(0, sizeof prefix - 1, prefix, sizeof prefix - 1) == 0)
+    path.erase(0, sizeof prefix - 2);
+
   return KC::DeviceInfo(name, path, device.get_dev_node());
 }
 
