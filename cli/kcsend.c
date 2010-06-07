@@ -29,31 +29,40 @@
 #include <libkc/libkc.h>
 
 #define BAUDRATE_NORMAL B1200
-#define BAUDRATE_BOOST  B2400
+#define BAUDRATE_BOOST  B19200
 
-/* Address of CAOS 4.2 V24DUP initialization table */
-#define V24DUPINIT 0xA809u
-
-static const unsigned char v24boost[] =
+static const unsigned char v24boostcode[] = /* hex dump of v24boost.asm */
 {
-  0x54, V24DUPINIT & 0xFF, V24DUPINIT >> 8, 0x09, 0x00,
-  0x47, 0x17, 0x18, 0x04, 0x44, 0x03, 0xE1, 0x05, 0x6A  /* 2400 Baud duplex */
+  0x54, 0x00, 0xB7, 0x78, 0x00, 0x01, 0x03, 0x07,
+  0xCD, 0x47, 0xB7, 0xCD, 0x5D, 0xB7, 0x4F, 0xCD,
+  0x5D, 0xB7, 0x47, 0xCD, 0x5D, 0xB7, 0x6F, 0xCD,
+  0x5D, 0xB7, 0x67, 0x18, 0x13, 0xCD, 0x5D, 0xB7,
+  0x02, 0x03, 0x82, 0x57, 0x1D, 0x20, 0xF6, 0xDB,
+  0x0B, 0xE6, 0x04, 0x28, 0xFA, 0x7A, 0xD3, 0x09,
+  0x11, 0x80, 0x00, 0xAF, 0xED, 0x52, 0x30, 0xE5,
+  0x19, 0x5D, 0x6F, 0xBB, 0x38, 0xDF, 0x3E, 0x01,
+  0xF3, 0xD3, 0x0B, 0xDB, 0x0B, 0xFB, 0x0F, 0x30,
+  0xF5, 0x01, 0x2E, 0x09, 0x21, 0x6F, 0xB7, 0x3E,
+  0x47, 0xF3, 0xD3, 0x0D, 0x79, 0xD3, 0x0D, 0x0E,
+  0x0B, 0xED, 0xB3, 0xFB, 0xC9, 0x3E, 0xEA, 0xD3,
+  0x0B, 0xFB, 0xDB, 0x0B, 0x0F, 0x3E, 0x05, 0xF3,
+  0xD3, 0x0B, 0x30, 0xF1, 0x3E, 0x6A, 0xD3, 0x0B,
+  0xFB, 0xDB, 0x09, 0xC9, 0x18, 0x04, 0x44, 0x03,
+  0xE1, 0x05, 0xEA, 0x11, 0x18
 };
-static const unsigned char v24normal[] =
-{
-  0x54, V24DUPINIT & 0xFF, V24DUPINIT >> 8, 0x09, 0x00,
-  0x47, 0x2E, 0x18, 0x04, 0x44, 0x03, 0xE1, 0x05, 0x6A  /* 1200 Baud duplex */
-};
-static const unsigned char v24escape[] = { 0x1B };
+static const unsigned char v24boostrun[] = { 0x55, 0x00, 0xB7 }; /* 'U' B700 */
+static const unsigned char v24escape[]   = { 0x1B };
+static const unsigned char v24mcload[]   = { 0x54 }; /* 'T' */
 
 static int            stdout_isterm;  /* log progress on standard output? */
 static int            portfd;         /* serial port file descriptor */
+static int            boostmode;      /* enable 19200 Baud transfer? */
 static struct termios portattr;       /* serial port "terminal" settings */
 
 static void
 exit_usage(void)
 {
-  fprintf(stderr, "Usage: kcsend [-p PORT] [FILE]...\n");
+  fprintf(stderr, "Usage: kcsend [-p PORT] [-l] [-n] [FILE]...\n");
   exit(1);
 }
 
@@ -96,6 +105,25 @@ send_sequence(const unsigned char* data, ssize_t length)
 }
 
 static unsigned int
+receive_byte(void)
+{
+  unsigned char byte;
+  ssize_t       count;
+
+  while ((count = read(portfd, &byte, 1)) < 0)
+  {
+    if (errno != EINTR)
+      exit_error("receive byte");
+  }
+  if (count == 0)
+  {
+    fputs("receive byte: connection broken\n", stderr);
+    exit(1);
+  }
+  return byte;
+}
+
+static unsigned int
 send_kcfile(const char* filename)
 {
   FILE*         kcfile;
@@ -118,14 +146,21 @@ send_kcfile(const char* filename)
     fprintf(stderr, "%s: invalid raw tape image header\n", filename);
     exit(1);
   }
+  send_sequence(v24escape, sizeof v24escape);
+
+  if (boostmode)
+  {
+    send_sequence(v24boostrun, sizeof v24boostrun);
+    change_baudrate(BAUDRATE_BOOST);
+  }
+  else
+    send_sequence(v24mcload, sizeof v24mcload); /* just the 'T' command */
+
   unsigned int start = 0xFFFF;
   if (nargs >= 3)
     start = block[21] | (unsigned)block[22] << 8;
 
   unsigned int length = end - load;
-
-  send_sequence(v24escape, sizeof v24escape);
-  change_baudrate(BAUDRATE_BOOST);
 
   if (stdout_isterm)
   {
@@ -135,44 +170,71 @@ send_kcfile(const char* filename)
       name[i] = kc_to_wide_char(block[i]);
     name[11] = L'\0';
 
-    printf("%ls %.4X %.4X\n01>", name, load, end);
+    printf("%ls %.4X %.4X", name, load, end);
+
+    if (nargs >= 3)
+      printf(" %.4X", start);
+
+    fputs("\n01>", stdout);
     fflush(stdout);
   }
 
-  const unsigned char prolog[] = { 0x54, load & 0xFF, load >> 8, length & 0xFF, length >> 8 };
+  const unsigned char prolog[] = { load & 0xFF, load >> 8, length & 0xFF, length >> 8 };
   send_sequence(prolog, sizeof prolog);
 
   unsigned int offset = 0;
 
   while (offset < length)
   {
-    size_t nread = length - offset;
-    if (nread > sizeof block)
-      nread = sizeof block;
-    nread = fread(block, 1, nread, kcfile);
+    size_t blocksize = length - offset;
+    if (blocksize > sizeof block)
+      blocksize = sizeof block;
+    size_t nread = fread(block, 1, blocksize, kcfile);
 
     if (nread == 0)
-    {
-      fprintf(stderr, "%s: premature end of file\n", filename);
-      exit(1);
-    }
+      break;
     offset += nread;
     send_sequence(block, nread);
 
+    const char* indicator = ">";
+
+    if (boostmode)
+    {
+      unsigned int checksum = 0;
+
+      for (size_t i = 0; i < nread; ++i)
+        checksum += block[i];
+
+      if (receive_byte() != (checksum & 0xFF))
+        indicator = "*\n"; /* checksum error */
+    }
     if (stdout_isterm)
     {
-      printf("\r%.2X>", (offset / 128 + 1) & 0xFF);
+      if (nread != blocksize)
+        indicator = "*\n"; /* end of file error */
+
+      printf("\r%.2X%s", (offset / 128 + 1) & 0xFF, indicator);
       fflush(stdout);
     }
+
+    if (nread == 0)
+      break;
   }
-  change_baudrate(BAUDRATE_NORMAL);
 
   if (kcfile != stdin && fclose(kcfile) != 0)
     exit_error(filename);
 
-  if (stdout_isterm)
+  if (offset == length && stdout_isterm)
     puts("\rFF>");
 
+  if (boostmode)
+    change_baudrate(BAUDRATE_NORMAL);
+
+  if (offset < length)
+  {
+    fprintf(stderr, "\r%s: premature end of file\n", filename);
+    exit(1);
+  }
   return start;
 }
 
@@ -182,17 +244,17 @@ init_serial_port(const char* portname)
   if (tcgetattr(portfd, &portattr) < 0)
     exit_error(portname);
 
-  portattr.c_iflag &= ~(IGNBRK | INPCK | ISTRIP | INLCR | IGNCR | ICRNL | IXON | IXOFF);
-  portattr.c_iflag |= BRKINT;
+  portattr.c_iflag &= ~(BRKINT | IGNCR | ISTRIP | INLCR | ICRNL
+                        | IXON | IXOFF | PARMRK);
+  portattr.c_iflag |= INPCK | IGNBRK | IGNPAR;
 
   portattr.c_oflag &= ~(OPOST | OCRNL | OFILL);
 
-  portattr.c_cflag &= ~(CLOCAL | CSIZE | CSTOPB | PARENB);
-  portattr.c_cflag |= CREAD | CS8 | HUPCL | CRTSCTS; /* not in POSIX */
+  portattr.c_cflag &= ~(CSIZE | CSTOPB | PARENB);
+  portattr.c_cflag |= CREAD | CS8 | HUPCL | CLOCAL | CRTSCTS; /* not in POSIX */
 
-  portattr.c_lflag &= ~(ICANON | IEXTEN | ISIG | ECHO | NOFLSH | TOSTOP);
+  portattr.c_lflag &= ~(ICANON | IEXTEN | ISIG | ECHO | TOSTOP);
 
-  portattr.c_cc[VINTR] = 3;
   portattr.c_cc[VMIN]  = 1;
   portattr.c_cc[VTIME] = 0;
 
@@ -215,13 +277,18 @@ init_serial_port(const char* portname)
 int
 main(int argc, char** argv)
 {
-  const char*  portname = "/dev/ttyS0";
-  int          c;
+  const char* portname  = "/dev/ttyS0";
+  int         autostart = 1;
+  int         c;
 
-  while ((c = getopt(argc, argv, "p:?")) != -1)
+  boostmode = 1;
+
+  while ((c = getopt(argc, argv, "p:ln?")) != -1)
     switch (c)
     {
       case 'p': portname = optarg; break;
+      case 'l': boostmode = 0; break;
+      case 'n': autostart = 0; break;
       case '?': exit_usage();
       default:  abort();
     }
@@ -245,27 +312,23 @@ main(int argc, char** argv)
   if (stdout_isterm)
     printf("Using serial port %s\n", portname);
 
-  send_sequence(v24escape, sizeof v24escape);
-  send_sequence(v24boost,  sizeof v24boost);
-
-  unsigned int autostart = 0xFFFF;
+  if (boostmode)
+  {
+    send_sequence(v24escape, sizeof v24escape);
+    send_sequence(v24boostcode, sizeof v24boostcode);
+  }
+  unsigned int start = 0xFFFF;
 
   for (int i = optind; i < argc; ++i)
-    autostart = send_kcfile(argv[i]);
+    start = send_kcfile(argv[i]);
 
-  send_sequence(v24escape, sizeof v24escape);
-  change_baudrate(BAUDRATE_BOOST);
-  send_sequence(v24normal, sizeof v24normal);
-  change_baudrate(BAUDRATE_NORMAL);
-
-  if (autostart < 0xFFFF)
+  if (autostart && start < 0xFFFF)
   {
-    const unsigned char v24exec[] = { 0x55, autostart & 0xFF, autostart >> 8 };
+    const unsigned char v24exec[] = { 0x55, start & 0xFF, start >> 8 };
 
     send_sequence(v24escape, sizeof v24escape);
     send_sequence(v24exec,   sizeof v24exec);
   }
-
   if (close(portfd) < 0)
     exit_error(portname);
 
