@@ -29,8 +29,7 @@ tapbuf:	equ	0B700h		; address of cassette tape buffer
 sioc:	equ	0Bh
 siod:	equ	09h
 ctc:	equ	0Dh
-dtroff:	equ	01101010b	; DTR off, 8 bit, transmit enable, RTS on
-dtron:	equ	10000000b + dtroff
+trconf:	equ	01101010b	; DTR off, 8 bit, transmit enable, RTS on
 
 	db	54h		; 'T' command
 	dw	tapbuf		; address of cassette tape buffer
@@ -42,9 +41,9 @@ dtron:	equ	10000000b + dtroff
 	call	v24ini
 
 	call	cin
-	ld	c,a		; bc = start address
+	ld	e,a		; de = start address
 	call	cin
-	ld	b,a
+	ld	d,a
 	call	cin
 	ld	l,a		; hl = byte count
 	call	cin
@@ -52,30 +51,30 @@ dtron:	equ	10000000b + dtroff
 	jr	lcond
 
 loop:	call	cin
-	ld	(bc),a
-	inc	bc
-	add	a,d		; checksum
-	ld	d,a
-	dec	e
+	ld	(de),a
+	inc	de
+	add	a,b		; checksum
+	ld	b,a
+	dec	c
 	jr	nz,loop
 
 cout:	in	a,(sioc)
 	and	00000100b	; transmit buffer empty?
 	jr	z,cout
-	ld	a,d
+	ld	a,b
 	out	(siod),a	; send byte
 
-lcond:	ld	de,0080h	; checksum = 0, byte count = block size
+lcond:	ld	bc,0080h	; checksum = 0, byte count = block size
 	xor	a		; cy = 0
-	sbc	hl,de
+	sbc	hl,bc
 	jr	nc,loop
-	add	hl,de
-	ld	e,l		; e = remainder
+	add	hl,bc
+	ld	c,l		; c = remainder
 	ld	l,a		; l = 0
-	cp	e		; remainder = 0?
+	cp	c		; remainder = 0?
 	jr	c,loop
 
-drain:	ld	a,1
+drain:	ld	a,1		; select RR1
 	di
 	out	(sioc),a
 	in	a,(sioc)
@@ -97,25 +96,25 @@ v24ini:	ld	hl,v24tab
 	ei
 	ret
 
-cin0:	ld	a,dtron		; signal ready to sender
-	out	(sioc),a
-	ei
 cin:	in	a,(sioc)
 	rrca			; data waiting?
+	ccf
 	ld	a,5		; select WR5
 	di
 	out	(sioc),a
-	jr	nc,cin0
-cin1:	ld	a,dtroff	; signal busy to sender
-	out	(sioc),a
+	ld	a,2 * trconf
+	rra			; DTR off if data is waiting
+	out	(sioc),a	; signal ready or busy to sender
 	ei
+	rlca			; data waiting?
+	jr	c,cin
 	in	a,(siod)	; read received byte
 	ret
 
 v24tab:	db	00011000b	; channel reset
 	db	4,01000100b	; x16 clock, 1 stop bit, no parity
 	db	3,11100001b	; 8 bit, auto enables, receive enable
-	db	5,dtron
+	db	5,10000000b + trconf
 v24il:	equ	$ - v24tab
 	db	11h,00011000b	; interrupt reset and enable
 v24rl:	equ	$ - v24tab
