@@ -62,7 +62,7 @@ static struct termios portattr;       /* serial port "terminal" settings */
 static void
 exit_usage(void)
 {
-  fprintf(stderr, "Usage: kcsend [-p PORT] [-l] [-n] [FILE]...\n");
+  fputs("Usage: kcsend [-p PORT] [-o OFFSET] [-l] [-n] [FILE]...\n", stderr);
   exit(1);
 }
 
@@ -71,6 +71,31 @@ exit_error(const char* where)
 {
   perror(where);
   exit(1);
+}
+
+/* Parse a 16 bit number from a string in base 10, base 16 or base 8.
+ * Negative offsets are translated to a 16 bit unsigned integer using
+ * two's complement.
+ */
+static int
+parse_int16(const char* str, unsigned int* result)
+{
+  if (str && str[0] != '\0')
+  {
+    char* endptr = 0;
+    errno = 0;
+
+    const long value = strtol(str, &endptr, 0);
+
+    if (endptr && *endptr == '\0'
+        && value >= -0xFFFF && value <= 0xFFFF
+        && (value != 0 || errno == 0))
+    {
+      *result = (value + 0x10000) & 0xFFFFu;
+      return 1;
+    }
+  }
+  return 0;
 }
 
 static void
@@ -124,7 +149,7 @@ receive_byte(void)
 }
 
 static unsigned int
-send_kcfile(const char* filename)
+send_kcfile(const char* filename, unsigned int loadoffset)
 {
   FILE*         kcfile;
   unsigned char block[128];
@@ -156,11 +181,18 @@ send_kcfile(const char* filename)
   else
     send_sequence(v24mcload, sizeof v24mcload); /* just the 'T' command */
 
+  unsigned int length = end - load;
+
+  load = (load + loadoffset) & 0xFFFFu;
+  end  = (end  + loadoffset) & 0xFFFFu;
+
   unsigned int start = 0xFFFF;
+
   if (nargs >= 3)
     start = block[21] | (unsigned)block[22] << 8;
 
-  unsigned int length = end - load;
+  if (nargs == 3)
+    start = (start + loadoffset) & 0xFFFFu;
 
   if (stdout_isterm)
   {
@@ -277,27 +309,30 @@ init_serial_port(const char* portname)
 int
 main(int argc, char** argv)
 {
-  const char* portname  = "/dev/ttyS0";
-  int         autostart = 1;
-  int         c;
+  const char*  portname   = "/dev/ttyS0";
+  unsigned int loadoffset = 0;
+  int          autostart  = 1;
+  int          c;
 
   boostmode = 1;
+  stdout_isterm = isatty(STDOUT_FILENO);
 
-  while ((c = getopt(argc, argv, "p:ln?")) != -1)
+  setlocale(LC_ALL, "");
+
+  while ((c = getopt(argc, argv, "p:o:ln?")) != -1)
     switch (c)
     {
       case 'p': portname = optarg; break;
       case 'l': boostmode = 0; break;
       case 'n': autostart = 0; break;
+      case 'o': if (parse_int16(optarg, &loadoffset))
+                  break; // else fallthrough
       case '?': exit_usage();
       default:  abort();
     }
 
   if (optind >= argc)
     exit_usage();
-
-  setlocale(LC_ALL, "");
-  stdout_isterm = isatty(STDOUT_FILENO);
 
   portfd = open(portname, O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (portfd < 0)
@@ -320,7 +355,7 @@ main(int argc, char** argv)
   unsigned int start = 0xFFFF;
 
   for (int i = optind; i < argc; ++i)
-    start = send_kcfile(argv[i]);
+    start = send_kcfile(argv[i], loadoffset);
 
   if (autostart && start < 0xFFFF)
   {
