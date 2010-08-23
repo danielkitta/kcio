@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Daniel Elstner 2008 <daniel.kitta@gmail.com>
+ * Copyright (c) Daniel Elstner 2008-2010 <daniel.kitta@gmail.com>
  * 
  * KCPlay is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,25 +31,28 @@
 
 enum BitLength
 {
-  BIT_0 = 1, /* 2400 Hz */
-  BIT_1 = 2, /* 1200 Hz */
-  BIT_T = 4  /*  600 Hz */
+  BIT_0 = 0, /* 2400 Hz */
+  BIT_1 = 1, /* 1200 Hz */
+  BIT_T = 2  /*  600 Hz */
 };
 
-static snd_pcm_t*         audio       = 0;
-static snd_output_t*      output      = 0;
-static int16_t*           periodbuf   = 0;
-static snd_pcm_uframes_t  periodsize  = 0;
-static snd_pcm_uframes_t  periodpos   = 0;
-static unsigned int       samplerate  = 48000;
-static unsigned int       n_channels  = 1;
-static unsigned int       phase       = 0;
-static int                stdout_isterm;  /* log progress on standard output? */
+static snd_pcm_t*        audio      = 0;
+static snd_output_t*     output     = 0;
+static int16_t*          periodbuf  = 0;
+static snd_pcm_uframes_t periodsize = 0;
+static snd_pcm_uframes_t periodpos  = 0;
+static unsigned int      samplerate = 48000;
+static unsigned int      n_channels = 1;
+static unsigned int      phase      = 0;
+static unsigned int      basefreq   = 600;
+static int               amplitude  = 23170; /* 1 / sqrt(2) */
+static unsigned int      ratescale;
+static int               stdout_isterm; /* log progress on standard output? */
 
 static void
 exit_usage(void)
 {
-  fprintf(stderr, "Usage: kcplay [-d DEVICE] [FILE]...\n");
+  fputs("Usage: kcplay [-a VOLUME] [-f FREQUENCY] [-r RATE] [-d DEVICE] [-v] FILE...\n", stderr);
   exit(optopt != 0);
 }
 
@@ -70,13 +73,13 @@ exit_snd_error(int rc, const char* what)
 static void
 init_audio(const char* devname)
 {
-  snd_pcm_hw_params_t*  hwparams  = 0;
-  snd_pcm_sw_params_t*  swparams  = 0;
-  snd_pcm_uframes_t     bufsize   = 0;
-  unsigned int          buftime   = 1000000;
-  unsigned int          pertime   = 50000;
-  int                   dir       = 0;
-  int                   rc;
+  snd_pcm_hw_params_t* hwparams = 0;
+  snd_pcm_sw_params_t* swparams = 0;
+  snd_pcm_uframes_t    bufsize  = 0;
+  unsigned int         buftime  = 1000000;
+  unsigned int         pertime  = 50000;
+  int                  dir      = 0;
+  int                  rc;
 
   if ((rc = snd_output_stdio_attach(&output, stderr, 0)) < 0)
     exit_snd_error(rc, "log output");
@@ -108,17 +111,17 @@ init_audio(const char* devname)
   if ((rc = snd_pcm_hw_params_set_buffer_time_near(audio, hwparams, &buftime, &dir)) < 0)
     exit_snd_error(rc, "buffer time");
 
-  if ((rc = snd_pcm_hw_params_get_buffer_size(hwparams, &bufsize)) < 0)
-    exit_snd_error(rc, "buffer size");
-
   if ((rc = snd_pcm_hw_params_set_period_time_near(audio, hwparams, &pertime, &dir)) < 0)
     exit_snd_error(rc, "period time");
 
-  if ((rc = snd_pcm_hw_params_get_period_size(hwparams, &periodsize, &dir)) < 0)
-    exit_snd_error(rc, "period size");
-
   if ((rc = snd_pcm_hw_params(audio, hwparams)) < 0)
     exit_snd_error(rc, "applying hardware parameters");
+
+  if ((rc = snd_pcm_hw_params_get_buffer_size(hwparams, &bufsize)) < 0)
+    exit_snd_error(rc, "buffer size");
+
+  if ((rc = snd_pcm_hw_params_get_period_size(hwparams, &periodsize, &dir)) < 0)
+    exit_snd_error(rc, "period size");
 
   snd_pcm_hw_params_free(hwparams);
 
@@ -139,10 +142,6 @@ init_audio(const char* devname)
 
   if ((rc = snd_pcm_prepare(audio)) < 0)
     exit_snd_error(rc, "preparing device");
-#if 0
-  if ((rc = snd_pcm_dump(audio, output)) < 0)
-    exit_snd_error(rc, "dump setup");
-#endif
 }
 
 static void
@@ -170,16 +169,68 @@ write_frame(int sample)
   }
 }
 
+/* Approximate cos(pi * x / samplerate) in fixed point arithmetic using Taylor
+ * expansion.  The argument must be within the range [0, samplerate / 2], or
+ * otherwise the result is undefined.
+ */
+static int
+approx_cosine(unsigned int x, unsigned int amp)
+{
+  enum
+  {
+    PREC = 15,
+    ONE  = 1 << PREC
+  };
+
+  unsigned int phi  = (x * ratescale) >> (30 - PREC);
+  unsigned int phi2 = (phi * phi) >> PREC;
+
+  /* Compute the eigth-degree Taylor polynom for the cosine function */
+  unsigned int icos = 2 * ONE - phi2 * (ONE - phi2 * (ONE - phi2 * (ONE - phi2
+                      / 56) / (30 * ONE)) / (12 * ONE)) / ONE;
+  return (amp * icos) >> (PREC + 1);
+}
+
 static void
 write_bit(int t)
 {
-  for (; phase < t * samplerate; phase += 4800)
-    write_frame(32000);
-  phase -= t * samplerate;
+  unsigned int srate = samplerate;
+  unsigned int phi   = phase;
+  unsigned int step  = 8 * basefreq;
+  int          amp   = amplitude;
 
-  for (; phase < t * samplerate; phase += 4800)
-    write_frame(-32000);
-  phase -= t * samplerate;
+  for (; phi < (srate << t) / 2; phi += step)
+    write_frame(approx_cosine(phi >> t, amp));
+
+  for (; phi < (srate << t); phi += step)
+    write_frame(-approx_cosine(srate - (phi >> t), amp));
+
+  phi -= srate << t;
+
+  for (; phi < (srate << t) / 2; phi += step)
+    write_frame(-approx_cosine(phi >> t, amp));
+
+  for (; phi < (srate << t); phi += step)
+    write_frame(approx_cosine(srate - (phi >> t), amp));
+
+  phase = phi - (srate << t);
+}
+
+static void
+write_ramp(int slope)
+{
+  unsigned int srate = samplerate;
+  unsigned int phi   = phase;
+  unsigned int step  = 8 * basefreq;
+  int          amp   = amplitude;
+
+  for (; phi < srate; phi += step)
+    write_frame((amp + 1 - slope * approx_cosine(phi / 2, amp)) >> 1);
+
+  for (; phi < 2 * srate; phi += step)
+    write_frame((amp + 1 + slope * approx_cosine(srate - phi / 2, amp)) >> 1);
+
+  phase = phi - 2 * srate;
 }
 
 static void
@@ -187,7 +238,7 @@ write_byte(unsigned int byte)
 {
   for (int i = 0; i < 8; ++i)
   {
-    write_bit(BIT_0 + (byte & 1));
+    write_bit(byte & 1);
     byte >>= 1;
   }
   write_bit(BIT_T);
@@ -222,10 +273,10 @@ write_block(unsigned int blocknr, const uint8_t* data)
 static void
 write_kcfile(const char* filename)
 {
-  FILE*         kcfile;
-  unsigned int  load, end;
-  int           nblocks;
-  uint8_t       block[128];
+  FILE*        kcfile;
+  unsigned int load, end;
+  int          nblocks;
+  uint8_t      block[128];
 
   if (filename[0] == '-' && filename[1] == '\0')
     kcfile = stdin;
@@ -269,10 +320,12 @@ write_kcfile(const char* filename)
     printf("%ls %.4X %.4X\n", name, load, end);
   }
 
+  write_ramp(1);
+
   /* The initial lead-in sound is played for about 8000 oscillations according
    * to the original documentation.  That length is useful for seeking on tape,
-   * but otherwise not required.  800 oscillations are more than enough. */
-  for (int i = 0; i < 640; ++i)
+   * but otherwise not required.  960 oscillations are more than enough. */
+  for (int i = 0; i < 800; ++i)
     write_bit(BIT_1);
 
   write_block(1, block);
@@ -287,6 +340,8 @@ write_kcfile(const char* filename)
     write_block((i < nblocks) ? i & 0xFF : 0xFF, block);
   }
 
+  write_ramp(-1);
+
   if (stdout_isterm)
     putchar('\n');
 
@@ -297,16 +352,45 @@ write_kcfile(const char* filename)
     exit_error(filename);
 }
 
+/* Parse a floating point number in range in the format defined by the
+ * currently active locale.  Validate the input against the specified range
+ * [minval, maxval].  Return the result scaled by scale and rounded to the
+ * next integer.
+ */
+static int
+parse_number(const char* str, double minval, double maxval, double scale)
+{
+  char* endptr = 0;
+  errno = 0;
+
+  double value = strtod(str, &endptr);
+
+  if (errno != 0)
+    exit_error(str);
+
+  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
+  {
+    fprintf(stderr, "%s: argument out of range\n", str);
+    exit(1);
+  }
+  return (int)(value * scale + 0.5);
+}
+
 int
 main(int argc, char** argv)
 {
   const char* devname = "default";
+  int         verbose = 0;
   int         c, rc;
 
-  while ((c = getopt(argc, argv, "d:?")) != -1)
+  while ((c = getopt(argc, argv, "a:d:f:r:v?")) != -1)
     switch (c)
     {
-      case 'd': devname = optarg; break;
+      case 'a': amplitude  = parse_number(optarg, 0.0, 1.0, INT16_MAX); break;
+      case 'd': devname    = optarg; break;
+      case 'f': basefreq   = parse_number(optarg, 1.0, 1 << 20, 1.0); break;
+      case 'r': samplerate = parse_number(optarg, 1.0, 1 << 24, 1.0); break;
+      case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();
     }
@@ -318,6 +402,17 @@ main(int argc, char** argv)
   stdout_isterm = isatty(STDOUT_FILENO);
 
   init_audio(devname);
+
+  if (verbose && (rc = snd_pcm_dump(audio, output)) < 0)
+    exit_snd_error(rc, "dump setup");
+
+  if (8 * basefreq > samplerate)
+  {
+    fprintf(stderr, "Base frequency of %u Hz is out of range at %u samples per second\n",
+            basefreq, samplerate);
+    exit(1);
+  }
+  ratescale = 3373259426u / samplerate; /* 2^30 * pi / samplerate */
   periodbuf = malloc(periodsize * n_channels * sizeof(int16_t));
 
   for (int i = optind; i < argc; ++i)
