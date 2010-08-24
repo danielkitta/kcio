@@ -31,10 +31,9 @@
 
 enum BitLength
 {
-  BIT_0 = 1, /* 2400 Hz */
-  BIT_1 = 2, /* 1200 Hz */
-  BIT_T = 4, /*  600 Hz */
-  BIT_ERROR = 8
+  BIT_0 = 0, /* 2400 Hz */
+  BIT_1 = 1, /* 1200 Hz */
+  BIT_T = 2  /*  600 Hz */
 };
 
 static snd_pcm_t*         audio       = 0;
@@ -44,13 +43,13 @@ static snd_pcm_uframes_t  periodsize  = 0;
 static snd_pcm_uframes_t  periodpos   = 0;
 static unsigned int       samplerate  = 48000;
 static unsigned int       n_channels  = 1;
-static int                neglevel    = 0;      /* last seen edge was falling */
-static int                stdout_isterm;        /* log progress on standard output? */
+static unsigned int       sync_period = 48000 / 1200;
+static int                stdout_isterm; /* log progress on standard output? */
 
 static void
 exit_usage(void)
 {
-  fprintf(stderr, "Usage: kcrec [-d DEVICE] [FILE]...\n");
+  fputs("Usage: kcrec [-d DEVICE] [-v] FILE...\n", stderr);
   exit(optopt != 0);
 }
 
@@ -140,16 +139,12 @@ init_audio(const char* devname)
 
   if ((rc = snd_pcm_prepare(audio)) < 0)
     exit_snd_error(rc, "preparing device");
-#if 0
-  if ((rc = snd_pcm_dump(audio, output)) < 0)
-    exit_snd_error(rc, "dump setup");
-#endif
 }
 
 static int
 read_frame(void)
 {
-  if (periodpos == 0)
+  if (periodpos >= periodsize)
   {
     snd_pcm_uframes_t nread = 0;
 
@@ -164,52 +159,115 @@ read_frame(void)
       else if (rc != -EINTR && rc != -EAGAIN)
         exit_snd_error(rc, "reading sample data");
     }
-  }
-  int sample = periodbuf[n_channels * periodpos];
-
-  if (++periodpos == periodsize)
     periodpos = 0;
+  }
+  int sample = periodbuf[n_channels * periodpos++];
 
   return sample;
 }
 
-static unsigned int
-read_edge(void)
+static int
+peek_last_frame(void)
 {
-  unsigned int rate  = samplerate;
-  unsigned int phase = 0;
-  int neg;
-  do
-  {
-    neg = (read_frame() < 0);
-    phase += 600;
-  }
-  while (neg == neglevel && phase < rate);
-  neglevel = neg;
-
-  return BIT_0 << ((4 * phase + rate / 4) / rate);
+  return periodbuf[n_channels * (periodpos - 1)];
 }
 
-static void
+static unsigned int
+wait_for_edge(void)
+{
+  static unsigned int last_offset = 0;
+
+  unsigned int countdown = (samplerate / 128) + 1;
+  int left;
+  int right = peek_last_frame();
+
+  for (unsigned int i = 0; i < countdown; ++i)
+  {
+    left  = right;
+    right = read_frame();
+
+    /* Note: assumes two's complement */
+    if ((left ^ right) < 0)
+    {
+      unsigned int offset = (((left + right) ^ right) < 0) ? 1 : 0;
+      unsigned int delta  = 2 * i + 2 + offset - last_offset;
+
+      last_offset = offset;
+      return delta;
+    }
+  }
+  return 2 * countdown; /* countdown expired */
+}
+
+static unsigned int
 sync_block(void)
 {
-  enum { LEADIN_THRESHOLD = 2 * 16 };
-  int leadin = LEADIN_THRESHOLD;
+  enum { LEADIN_THRESHOLD = 2 * 24 };
+
+  unsigned long sum   = 0;
+  unsigned int  count = 0;
 
   for (;;)
-    switch (read_edge())
+  {
+    unsigned int  period = wait_for_edge();
+    unsigned long scaled = 2ul * count * period;
+
+    if (2 * scaled > 5 * sum || 2 * scaled < 3 * sum)
     {
-      case BIT_1:
-        if (leadin > 0)
-          --leadin;
-        break;
-      case BIT_T:
-        if (leadin == 0 && read_edge() == BIT_T)
-          return;
-        // fall through
-      default:
-        leadin = LEADIN_THRESHOLD;
+      if (count > LEADIN_THRESHOLD && scaled > 3 * sum && scaled < 5 * sum)
+      {
+        unsigned int average = (2 * sum / count + 1) / 2;
+
+        if (8192 * average > samplerate && 256 * average < samplerate)
+        {
+          period = wait_for_edge();
+
+          if (3 * period > 5 * average && 3 * period < 7 * average)
+            return average;
+        }
+      }
+      sum   = 0;
+      count = 0;
     }
+
+    sum += period;
+    ++count;
+  }
+}
+
+static unsigned int
+read_bit(void)
+{
+  unsigned int norm  = sync_period;
+  unsigned int first = wait_for_edge();
+
+  if (3 * first > norm && 3 * first < 8 * norm)
+  {
+    unsigned int second = wait_for_edge();
+
+    /* The last oscillation at the end of every block is missing its second
+     * half period: KC bug!  Thus, let overlong periods pass. */
+    if (3 * second > norm)
+    {
+      if (4 * second < 3 * norm)
+      {
+        if (first < norm)
+          return BIT_0;
+      }
+      else if (2 * second > 3 * norm)
+      {
+        if (first > norm)
+          return BIT_T;
+      }
+      else
+      {
+        if (2 * first > norm && first < 2 * norm)
+          return BIT_1;
+      }
+    }
+  }
+  fputs("Analog signal decoding error\n", stderr);
+  exit(1);
 }
 
 static unsigned int
@@ -219,20 +277,19 @@ read_byte(void)
 
   for (int i = 0; i < 8; ++i)
   {
-    unsigned int bit = read_edge();
-    if (bit > BIT_1 || bit != read_edge())
+    unsigned int bit = read_bit();
+
+    if (bit > BIT_1)
     {
-      fprintf(stderr, "Analog signal decoding error\n");
+      fputs("Analog signal synchronization error\n", stderr);
       exit(1);
     }
-    byte = ((bit & BIT_1) << 6) | (byte >> 1);
+    byte = (byte >> 1) | (bit << 7);
   }
 
-  /* The last oscillation at the end of every block is missing
-   * its second half period: KC bug! */
-  if (read_edge() != BIT_T || read_edge() < BIT_1)
+  if (read_bit() != BIT_T)
   {
-    fprintf(stderr, "Analog signal synchronization loss\n");
+    fputs("Analog signal synchronization loss\n", stderr);
     exit(1);
   }
   return byte;
@@ -241,7 +298,7 @@ read_byte(void)
 static unsigned int
 read_block(unsigned char* data)
 {
-  sync_block();
+  sync_period = sync_block();
   unsigned int blocknr = read_byte();
 
   unsigned int checksum = 0;
@@ -260,39 +317,6 @@ read_block(unsigned char* data)
 
   return blocknr;
 }
-
-#if 0
-static unsigned int
-read_kctape(uint8_t* tapebuf)
-{
-  unsigned int nblocks = 0;
-  unsigned int blocknr;
-
-  do
-  {
-    blocknr = read_block(&tapebuf[nblocks++ * 128]);
-
-    if (blocknr != nblocks && blocknr != 0xFF)
-    {
-      if (stdout_isterm)
-        printf("\r%.2X ?\n", blocknr);
-      fprintf(stderr, "Block sequence error\n");
-      exit(1);
-    }
-    if (stdout_isterm)
-    {
-      printf("\r%.2X>", blocknr);
-      fflush(stdout);
-    }
-  }
-  while (blocknr != 0xFF);
-
-  if (stdout_isterm)
-    putchar('\n');
-
-  return nblocks;
-}
-#endif
 
 static void
 read_kcfile(const char* filename)
@@ -386,12 +410,14 @@ int
 main(int argc, char** argv)
 {
   const char* devname = "default";
+  int         verbose = 0;
   int         c, rc;
 
-  while ((c = getopt(argc, argv, "d:?")) != -1)
+  while ((c = getopt(argc, argv, "d:v?")) != -1)
     switch (c)
     {
       case 'd': devname = optarg; break;
+      case 'v': verbose = 1; break;
       case '?': exit_usage();
       default:  abort();
     }
@@ -401,10 +427,14 @@ main(int argc, char** argv)
 
   setlocale(LC_ALL, "");
   stdout_isterm = isatty(STDOUT_FILENO);
-//  uint8_t* tapebuf = malloc(255 * 128 * sizeof(uint8_t));
 
   init_audio(devname);
-  periodbuf = malloc(periodsize * n_channels * sizeof(int16_t));
+
+  if (verbose && (rc = snd_pcm_dump(audio, output)) < 0)
+    exit_snd_error(rc, "dump setup");
+
+  periodbuf = calloc(periodsize * n_channels, sizeof(int16_t));
+  periodpos = periodsize;
 
   for (int i = optind; i < argc; ++i)
     read_kcfile(argv[i]);
