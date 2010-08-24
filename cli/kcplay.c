@@ -274,7 +274,8 @@ static void
 write_kcfile(const char* filename)
 {
   FILE*        kcfile;
-  unsigned int load, end;
+  unsigned int load, end, start;
+  int          nargs;
   int          nblocks;
   uint8_t      block[128];
 
@@ -290,6 +291,8 @@ write_kcfile(const char* filename)
 
   if ((sig & 0xFB) == 0xD3 && block[1] == sig && block[2] == sig)
   {
+    nargs = 2;
+
     unsigned int length = block[11] | (unsigned)block[12] << 8;
     load = 0x0401;
     end  = 0x0401 + length;
@@ -297,9 +300,13 @@ write_kcfile(const char* filename)
   }
   else
   {
-    int nargs = block[16];
+    nargs = block[16];
+
     load = block[17] | (unsigned)block[18] << 8;
     end  = block[19] | (unsigned)block[20] << 8;
+
+    if (nargs >= 3)
+      start = block[21] | (unsigned)block[22] << 8;
 
     if (nargs < 2 || nargs > 10 || load >= end)
     {
@@ -317,7 +324,12 @@ write_kcfile(const char* filename)
       name[i] = kc_to_wide_char(block[i]);
     name[11] = L'\0';
 
-    printf("%ls %.4X %.4X\n", name, load, end);
+    printf("%ls %.4X %.4X", name, load, end);
+
+    if (nargs >= 3)
+      printf(" %.4X", start);
+
+    putchar('\n');
   }
 
   write_ramp(1);
