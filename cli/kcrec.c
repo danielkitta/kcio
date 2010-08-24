@@ -38,18 +38,19 @@ enum BitLength
 
 static snd_pcm_t*         audio       = 0;
 static snd_output_t*      output      = 0;
-static int16_t*           periodbuf   = 0;
+static int16_t*           periodbuf;
 static snd_pcm_uframes_t  periodsize  = 0;
-static snd_pcm_uframes_t  periodpos   = 0;
+static snd_pcm_uframes_t  periodpos;
 static unsigned int       samplerate  = 48000;
-static unsigned int       n_channels  = 1;
-static unsigned int       sync_period = 48000 / 1200;
+static unsigned int       n_channels;
+static unsigned int       channel     = 0;
+static unsigned int       sync_period;
 static int                stdout_isterm; /* log progress on standard output? */
 
 static void
 exit_usage(void)
 {
-  fputs("Usage: kcrec [-d DEVICE] [-v] FILE...\n", stderr);
+  fputs("Usage: kcrec [-c CHANNEL] [-d DEVICE] [-r RATE] [-v] FILE...\n", stderr);
   exit(optopt != 0);
 }
 
@@ -161,15 +162,13 @@ read_frame(void)
     }
     periodpos = 0;
   }
-  int sample = periodbuf[n_channels * periodpos++];
-
-  return sample;
+  return periodbuf[n_channels * (periodpos++) + channel];
 }
 
 static int
 peek_last_frame(void)
 {
-  return periodbuf[n_channels * (periodpos - 1)];
+  return periodbuf[n_channels * (periodpos - 1) + channel];
 }
 
 static unsigned int
@@ -178,8 +177,8 @@ wait_for_edge(void)
   static unsigned int last_offset = 0;
 
   unsigned int countdown = (samplerate / 128) + 1;
-  int left;
-  int right = peek_last_frame();
+  int32_t left;
+  int32_t right = peek_last_frame();
 
   for (unsigned int i = 0; i < countdown; ++i)
   {
@@ -322,7 +321,8 @@ static void
 read_kcfile(const char* filename)
 {
   FILE*         kcfile;
-  unsigned int  load, end;
+  unsigned int  load, end, start;
+  int           nargs;
   int           nblocks;
   unsigned int  blocknr;
   uint8_t       block[128];
@@ -345,6 +345,7 @@ read_kcfile(const char* filename)
 
   if (((sig & 0xFB) == 0xD3 || (sig & 0xFE) == 0xD4) && block[1] == sig && block[2] == sig)
   {
+    nargs = 2;
     unsigned int length = block[11] | (unsigned)block[12] << 8;
     load = 0x0401;
     end  = 0x0401 + length;
@@ -352,9 +353,13 @@ read_kcfile(const char* filename)
   }
   else
   {
-    int nargs = block[16];
+    nargs = block[16];
+
     load = block[17] | (unsigned)block[18] << 8;
     end  = block[19] | (unsigned)block[20] << 8;
+
+    if (nargs >= 3)
+      start = block[21] | (unsigned)block[22] << 8;
 
     if (nargs < 2 || nargs > 10 || load >= end)
     {
@@ -372,7 +377,12 @@ read_kcfile(const char* filename)
       name[i] = kc_to_wide_char(block[i]);
     name[11] = L'\0';
 
-    printf("%ls %.4X %.4X\n", name, load, end);
+    printf("%ls %.4X %.4X", name, load, end);
+
+    if (nargs >= 3)
+      printf(" %.4X", start);
+
+    putchar('\n');
   }
 
   if (fwrite(block, sizeof block, 1, kcfile) == 0)
@@ -406,6 +416,52 @@ read_kcfile(const char* filename)
     exit_error(filename);
 }
 
+/* Parse a floating point number in range in the format defined by the
+ * currently active locale.  Validate the input against the specified range
+ * [minval, maxval].  Return the result scaled by scale and rounded to the
+ * next integer.
+ */
+static int
+parse_number(const char* str, double minval, double maxval, double scale)
+{
+  char* endptr = 0;
+  errno = 0;
+
+  double value = strtod(str, &endptr);
+
+  if (errno != 0)
+    exit_error(str);
+
+  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
+  {
+    fprintf(stderr, "%s: argument out of range\n", str);
+    exit(1);
+  }
+  return (int)(value * scale + 0.5);
+}
+
+/* Parse an integer from a string in base 10, base 16 or base 8.
+ * Validate the input against the specified range [minval, maxval].
+ */
+static int
+parse_int(const char* str, int minval, int maxval)
+{
+  char* endptr = 0;
+  errno = 0;
+
+  long value = strtol(str, &endptr, 0);
+
+  if (errno != 0)
+    exit_error(str);
+
+  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
+  {
+    fprintf(stderr, "%s: argument out of range\n", str);
+    exit(1);
+  }
+  return value;
+}
+
 int
 main(int argc, char** argv)
 {
@@ -413,11 +469,13 @@ main(int argc, char** argv)
   int         verbose = 0;
   int         c, rc;
 
-  while ((c = getopt(argc, argv, "d:v?")) != -1)
+  while ((c = getopt(argc, argv, "c:d:r:v?")) != -1)
     switch (c)
     {
-      case 'd': devname = optarg; break;
-      case 'v': verbose = 1; break;
+      case 'c': channel    = parse_int(optarg, 1, 256) - 1; break;
+      case 'd': devname    = optarg; break;
+      case 'r': samplerate = parse_number(optarg, 1.0, 1 << 24, 1.0); break;
+      case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();
     }
@@ -428,7 +486,15 @@ main(int argc, char** argv)
   setlocale(LC_ALL, "");
   stdout_isterm = isatty(STDOUT_FILENO);
 
+  n_channels = channel + 1;
   init_audio(devname);
+
+  if (channel >= n_channels)
+  {
+    fprintf(stderr, "Channel number %u out of range for stream with %u channels\n",
+            channel + 1, n_channels);
+    exit(1);
+  }
 
   if (verbose && (rc = snd_pcm_dump(audio, output)) < 0)
     exit_snd_error(rc, "dump setup");
