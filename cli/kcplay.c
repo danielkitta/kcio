@@ -185,7 +185,7 @@ approx_cosine(unsigned int x, unsigned int amp)
   unsigned int phi  = (x * ratescale) >> (30 - PREC);
   unsigned int phi2 = (phi * phi) >> PREC;
 
-  /* Compute the eigth-degree Taylor polynom for the cosine function */
+  /* Compute the eigth-degree Taylor polynomial for the cosine function */
   unsigned int icos = 2 * ONE - phi2 * (ONE - phi2 * (ONE - phi2 * (ONE - phi2
                       / 56) / (30 * ONE)) / (12 * ONE)) / ONE;
   return (amp * icos) >> (PREC + 1);
