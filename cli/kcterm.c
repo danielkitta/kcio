@@ -63,7 +63,7 @@ static WINDOW* win_output;
 static void
 exit_usage(void)
 {
-  fprintf(stderr, "Usage: kcterm [-p PORT]\n");
+  fputs("Usage: kcterm [-p PORT]\n", stderr);
   exit(1);
 }
 
@@ -109,7 +109,7 @@ init_screen(void)
       !(win_output = newwin(0, 0, 5, 0)))
   {
     destroy_screen();
-    fprintf(stderr, "Failed to configure terminal screen\n");
+    fputs("Failed to configure terminal screen\n", stderr);
     exit(1);
   }
 
@@ -313,7 +313,7 @@ input_loop(int portfd)
   if (portfd >= FD_SETSIZE)
   {
     destroy_screen();
-    fprintf(stderr, "File descriptor too large\n");
+    fputs("File descriptor too large\n", stderr);
     exit(1);
   }
 
