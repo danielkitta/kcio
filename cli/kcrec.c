@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008  Daniel Elstner <daniel.kitta@gmail.com>
+ * Copyright (c) 2008-2010  Daniel Elstner <daniel.kitta@gmail.com>
  *
  * KC-Rec is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -36,16 +36,16 @@ enum BitLength
   BIT_T = 2  /*  600 Hz */
 };
 
-static snd_pcm_t*         audio       = 0;
-static snd_output_t*      output      = 0;
-static int16_t*           periodbuf;
-static snd_pcm_uframes_t  periodsize  = 0;
-static snd_pcm_uframes_t  periodpos;
-static unsigned int       samplerate  = 48000;
-static unsigned int       n_channels;
-static unsigned int       channel     = 0;
-static unsigned int       sync_period;
-static int                stdout_isterm; /* log progress on standard output? */
+static snd_pcm_t*        audio      = 0;
+static snd_output_t*     output     = 0;
+static int16_t*          periodbuf;
+static snd_pcm_uframes_t periodsize = 0;
+static snd_pcm_uframes_t periodpos;
+static unsigned int      samplerate = 48000;
+static unsigned int      channel    = 0;
+static unsigned int      n_channels;
+static unsigned int      sync_period;
+static int               stdout_isterm; /* log progress on standard output? */
 
 static void
 exit_usage(void)
@@ -172,7 +172,7 @@ wait_for_edge(void)
   unsigned int countdown = (samplerate / 128) + 1;
   int32_t left;
   int32_t right = peek_last_frame();
-
+  
   for (unsigned int i = 0; i < countdown; ++i)
   {
     left  = right;
@@ -303,7 +303,7 @@ read_block(unsigned char* data)
   }
   if ((checksum & 0xFF) != read_byte())
   {
-    fprintf(stderr, "Block checksum error\n");
+    fputs("Block checksum error\n", stderr);
     exit(1);
   }
 
@@ -356,7 +356,7 @@ read_kcfile(const char* filename)
 
     if (nargs < 2 || nargs > 10 || load >= end)
     {
-      fprintf(stderr, "Invalid header information\n");
+      fputs("Invalid header information\n", stderr);
       exit(1);
     }
     nblocks = (end - load + 255) / 128;
@@ -389,7 +389,7 @@ read_kcfile(const char* filename)
     {
       if (stdout_isterm)
         printf("\r%.2X*\n", blocknr);
-      fprintf(stderr, "Block sequence error\n");
+      fputs("Block sequence error\n", stderr);
       exit(1);
     }
     if (stdout_isterm)
