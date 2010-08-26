@@ -36,6 +36,11 @@ enum BitLength
   BIT_T = 2  /*  600 Hz */
 };
 
+enum
+{
+  SYNC_CYCLES = 160
+};
+
 static snd_pcm_t*        audio      = 0;
 static snd_output_t*     output     = 0;
 static int16_t*          periodbuf  = 0;
@@ -247,7 +252,7 @@ write_byte(unsigned int byte)
 static void
 write_block(unsigned int blocknr, const uint8_t* data)
 {
-  for (int i = 0; i < 160; ++i)
+  for (int i = 0; i < SYNC_CYCLES; ++i)
     write_bit(BIT_1);
 
   write_bit(BIT_T);
@@ -336,8 +341,9 @@ write_kcfile(const char* filename)
 
   /* The initial lead-in sound is played for about 8000 oscillations according
    * to the original documentation.  That length is useful for seeking on tape,
-   * but otherwise not required.  960 oscillations are more than enough. */
-  for (int i = 0; i < 800; ++i)
+   * but otherwise not required.  About one second (at 1200 Hz) is more than
+   * enough. */
+  for (int i = 0; i < 1200 - SYNC_CYCLES; ++i)
     write_bit(BIT_1);
 
   write_block(1, block);
