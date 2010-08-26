@@ -25,6 +25,10 @@ G_BEGIN_DECLS
 unsigned int  kc_to_wide_char(unsigned char kc)  G_GNUC_CONST;
 unsigned char kc_from_wide_char(unsigned int wc) G_GNUC_CONST;
 
+void kc_exit_error(const char* where) G_GNUC_NORETURN;
+int kc_parse_arg_num(const char* arg, double minval, double maxval, double scale);
+int kc_parse_arg_int(const char* arg, int minval, int maxval);
+
 G_END_DECLS
 
 #endif /* !LIBKC_LIBKC_H_INCLUDED */

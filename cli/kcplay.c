@@ -62,13 +62,6 @@ exit_usage(void)
 }
 
 static void
-exit_error(const char* where)
-{
-  perror(where);
-  exit(1);
-}
-
-static void
 exit_snd_error(int rc, const char* what)
 {
   fprintf(stderr, "ALSA error (%s): %s\n", what, snd_strerror(rc));
@@ -243,7 +236,7 @@ write_byte(unsigned int byte)
 {
   for (int i = 0; i < 8; ++i)
   {
-    write_bit(byte & 1);
+    write_bit(byte & BIT_1);
     byte >>= 1;
   }
   write_bit(BIT_T);
@@ -290,7 +283,7 @@ write_kcfile(const char* filename)
     kcfile = fopen(filename, "rb");
 
   if (!kcfile || fread(&block, sizeof block, 1, kcfile) <= 0)
-    exit_error(filename);
+    kc_exit_error(filename);
 
   unsigned int sig = block[0];
 
@@ -342,7 +335,7 @@ write_kcfile(const char* filename)
   /* The initial lead-in sound is played for about 8000 oscillations according
    * to the original documentation.  That length is useful for seeking on tape,
    * but otherwise not required.  About one second (at 1200 Hz) is more than
-   * enough. */
+     * enough. */
   for (int i = 0; i < 1200 - SYNC_CYCLES; ++i)
     write_bit(BIT_1);
 
@@ -367,31 +360,7 @@ write_kcfile(const char* filename)
     write_frame(0);
 
   if (kcfile != stdin && fclose(kcfile) != 0)
-    exit_error(filename);
-}
-
-/* Parse a floating point number in range in the format defined by the
- * currently active locale.  Validate the input against the specified range
- * [minval, maxval].  Return the result scaled by scale and rounded to the
- * next integer.
- */
-static int
-parse_number(const char* str, double minval, double maxval, double scale)
-{
-  char* endptr = 0;
-  errno = 0;
-
-  double value = strtod(str, &endptr);
-
-  if (errno != 0)
-    exit_error(str);
-
-  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
-  {
-    fprintf(stderr, "%s: argument out of range\n", str);
-    exit(1);
-  }
-  return (int)(value * scale + 0.5);
+    kc_exit_error(filename);
 }
 
 int
@@ -404,10 +373,10 @@ main(int argc, char** argv)
   while ((c = getopt(argc, argv, "a:d:f:r:v?")) != -1)
     switch (c)
     {
-      case 'a': amplitude  = parse_number(optarg, 0.0, 1.0, INT16_MAX); break;
+      case 'a': amplitude  = kc_parse_arg_num(optarg, 0.0, 1.0, INT16_MAX); break;
       case 'd': devname    = optarg; break;
-      case 'f': basefreq   = parse_number(optarg, 1.0, 1 << 20, 1.0); break;
-      case 'r': samplerate = parse_number(optarg, 1.0, 1 << 24, 1.0); break;
+      case 'f': basefreq   = kc_parse_arg_num(optarg, 1.0, 1 << 20, 1.0); break;
+      case 'r': samplerate = kc_parse_arg_num(optarg, 1.0, 1 << 24, 1.0); break;
       case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();

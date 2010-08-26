@@ -55,13 +55,6 @@ exit_usage(void)
 }
 
 static void
-exit_error(const char* where)
-{
-  perror(where);
-  exit(1);
-}
-
-static void
 exit_snd_error(int rc, const char* what)
 { 
   fprintf(stderr, "ALSA error (%s): %s\n", what, snd_strerror(rc));
@@ -332,7 +325,7 @@ read_kcfile(const char* filename)
   else
     kcfile = fopen(filename, "wb");
   if (!kcfile)
-    exit_error(filename);
+    kc_exit_error(filename);
 
   while ((blocknr = read_block(block)) != 1)
     if (stdout_isterm)
@@ -386,7 +379,7 @@ read_kcfile(const char* filename)
   }
 
   if (fwrite(block, sizeof block, 1, kcfile) == 0)
-    exit_error(filename);
+    kc_exit_error(filename);
 
   for (int i = 2; i <= nblocks; ++i)
   {
@@ -406,60 +399,14 @@ read_kcfile(const char* filename)
     }
 
     if (fwrite(block, sizeof block, 1, kcfile) == 0)
-      exit_error(filename);
+      kc_exit_error(filename);
   }
 
   if (stdout_isterm)
     putchar('\n');
 
   if (kcfile != stdout && fclose(kcfile) != 0)
-    exit_error(filename);
-}
-
-/* Parse a floating point number in range in the format defined by the
- * currently active locale.  Validate the input against the specified range
- * [minval, maxval].  Return the result scaled by scale and rounded to the
- * next integer.
- */
-static int
-parse_number(const char* str, double minval, double maxval, double scale)
-{
-  char* endptr = 0;
-  errno = 0;
-
-  double value = strtod(str, &endptr);
-
-  if (errno != 0)
-    exit_error(str);
-
-  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
-  {
-    fprintf(stderr, "%s: argument out of range\n", str);
-    exit(1);
-  }
-  return (int)(value * scale + 0.5);
-}
-
-/* Parse an integer from a string in base 10, base 16 or base 8.
- * Validate the input against the specified range [minval, maxval].
- */
-static int
-parse_int(const char* str, int minval, int maxval)
-{
-  char* endptr = 0;
-  errno = 0;
-
-  long value = strtol(str, &endptr, 0);
-
-  if (errno != 0)
-    exit_error(str);
-
-  if (!endptr || *endptr != '\0' || !(value >= minval && value <= maxval))
-  {
-    fprintf(stderr, "%s: argument out of range\n", str);
-    exit(1);
-  }
-  return value;
+    kc_exit_error(filename);
 }
 
 int
@@ -472,9 +419,9 @@ main(int argc, char** argv)
   while ((c = getopt(argc, argv, "c:d:r:v?")) != -1)
     switch (c)
     {
-      case 'c': channel    = parse_int(optarg, 1, 256) - 1; break;
+      case 'c': channel    = kc_parse_arg_int(optarg, 1, 256) - 1; break;
       case 'd': devname    = optarg; break;
-      case 'r': samplerate = parse_number(optarg, 1.0, 1 << 24, 1.0); break;
+      case 'r': samplerate = kc_parse_arg_num(optarg, 1.0, 1 << 24, 1.0); break;
       case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();

@@ -67,45 +67,13 @@ exit_usage(void)
 }
 
 static void
-exit_error(const char* where)
-{
-  perror(where);
-  exit(1);
-}
-
-/* Parse a 16 bit number from a string in base 10, base 16 or base 8.
- * Negative offsets are translated to a 16 bit unsigned integer using
- * two's complement.
- */
-static int
-parse_int16(const char* str, unsigned int* result)
-{
-  if (str && str[0] != '\0')
-  {
-    char* endptr = 0;
-    errno = 0;
-
-    const long value = strtol(str, &endptr, 0);
-
-    if (endptr && *endptr == '\0'
-        && value >= -0xFFFF && value <= 0xFFFF
-        && (value != 0 || errno == 0))
-    {
-      *result = (value + 0x10000) & 0xFFFFu;
-      return 1;
-    }
-  }
-  return 0;
-}
-
-static void
 change_baudrate(speed_t rate)
 {
   cfsetispeed(&portattr, rate);
   cfsetospeed(&portattr, rate);
 
   if (tcsetattr(portfd, TCSADRAIN, &portattr) < 0)
-    exit_error("change baudrate");
+    kc_exit_error("change baudrate");
 }
 
 static void
@@ -119,13 +87,13 @@ send_sequence(const unsigned char* data, ssize_t length)
     if (rc >= 0)
       written += rc;
     else if (errno != EINTR)
-      exit_error("send sequence");
+      kc_exit_error("send sequence");
   }
 
   while (tcdrain(portfd) < 0)
   {
     if (errno != EINTR)
-      exit_error("send sequence");
+      kc_exit_error("send sequence");
   }
 }
 
@@ -138,7 +106,7 @@ receive_byte(void)
   while ((count = read(portfd, &byte, 1)) < 0)
   {
     if (errno != EINTR)
-      exit_error("receive byte");
+      kc_exit_error("receive byte");
   }
   if (count == 0)
   {
@@ -160,7 +128,7 @@ send_kcfile(const char* filename, unsigned int loadoffset)
     kcfile = fopen(filename, "rb");
 
   if (!kcfile || fread(&block, sizeof block, 1, kcfile) <= 0)
-    exit_error(filename);
+    kc_exit_error(filename);
 
   int nargs = block[16];
   unsigned int load = block[17] | (unsigned)block[18] << 8;
@@ -254,7 +222,7 @@ send_kcfile(const char* filename, unsigned int loadoffset)
   }
 
   if (kcfile != stdin && fclose(kcfile) != 0)
-    exit_error(filename);
+    kc_exit_error(filename);
 
   if (offset == length && stdout_isterm)
     puts("\rFF>");
@@ -274,7 +242,7 @@ static void
 init_serial_port(const char* portname)
 {
   if (tcgetattr(portfd, &portattr) < 0)
-    exit_error(portname);
+    kc_exit_error(portname);
 
   portattr.c_iflag &= ~(BRKINT | IGNCR | ISTRIP | INLCR | ICRNL
                         | IXON | IXOFF | PARMRK);
@@ -295,7 +263,7 @@ init_serial_port(const char* portname)
 
   if (tcsetattr(portfd, TCSAFLUSH, &portattr) < 0 ||
       tcgetattr(portfd, &portattr) < 0)
-    exit_error(portname);
+    kc_exit_error(portname);
 
   if ((portattr.c_cflag & (CSIZE | CSTOPB | PARENB | CRTSCTS)) != (CS8 | CRTSCTS)
       || cfgetispeed(&portattr) != BAUDRATE_NORMAL
@@ -322,11 +290,10 @@ main(int argc, char** argv)
   while ((c = getopt(argc, argv, "p:o:ln?")) != -1)
     switch (c)
     {
-      case 'p': portname = optarg; break;
-      case 'l': boostmode = 0; break;
-      case 'n': autostart = 0; break;
-      case 'o': if (parse_int16(optarg, &loadoffset))
-                  break; // else fallthrough
+      case 'p': portname   = optarg; break;
+      case 'l': boostmode  = 0; break;
+      case 'n': autostart  = 0; break;
+      case 'o': loadoffset = (kc_parse_arg_int(optarg, -0xFFFF, 0xFFFF) + 0x10000) & 0xFFFFu; break;
       case '?': exit_usage();
       default:  abort();
     }
@@ -336,13 +303,13 @@ main(int argc, char** argv)
 
   portfd = open(portname, O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (portfd < 0)
-    exit_error(portname);
+    kc_exit_error(portname);
 
   init_serial_port(portname);
 
   int flags = fcntl(portfd, F_GETFL, 0);
   if (flags < 0 || fcntl(portfd, F_SETFL, flags & ~O_NONBLOCK) < 0)
-    exit_error(portname);
+    kc_exit_error(portname);
 
   if (stdout_isterm)
     printf("Using serial port %s\n", portname);
@@ -365,7 +332,7 @@ main(int argc, char** argv)
     send_sequence(v24exec,   sizeof v24exec);
   }
   if (close(portfd) < 0)
-    exit_error(portname);
+    kc_exit_error(portname);
 
   return 0;
 }
