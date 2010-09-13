@@ -83,3 +83,16 @@ kc_parse_arg_int(const char* arg, int minval, int maxval)
   }
   return value;
 }
+
+KCFileFormat
+kc_parse_arg_format(const char* arg)
+{
+  KCFileFormat format = kc_format_from_name(arg);
+
+  if (format == KC_FORMAT_ANY)
+  {
+    fprintf(stderr, "Unknown file format \"%s\"\n", arg);
+    exit(1);
+  }
+  return format;
+}

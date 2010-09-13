@@ -103,12 +103,14 @@ static const unsigned char wchar2kc_table[256] =
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof((array)[0]))
 
-unsigned int kc_to_wide_char(unsigned char kc)
+unsigned int
+kc_to_wide_char(unsigned char kc)
 {
   return kc2wchar_table[kc % N_ELEMENTS(kc2wchar_table)];
 }
 
-unsigned char kc_from_wide_char(unsigned int wc)
+unsigned char
+kc_from_wide_char(unsigned int wc)
 {
   if (wc < N_ELEMENTS(wchar2kc_table))
     return wchar2kc_table[wc];

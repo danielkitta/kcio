@@ -31,9 +31,9 @@
 
 enum BitLength
 {
-  BIT_0 = 0, /* 2400 Hz */
-  BIT_1 = 1, /* 1200 Hz */
-  BIT_T = 2  /*  600 Hz */
+  BIT_0 = 0, // 2400 Hz
+  BIT_1 = 1, // 1200 Hz
+  BIT_T = 2  //  600 Hz
 };
 
 static snd_pcm_t*        audio      = 0;
@@ -45,12 +45,12 @@ static unsigned int      samplerate = 48000;
 static unsigned int      channel    = 0;
 static unsigned int      n_channels;
 static unsigned int      sync_period;
-static int               stdout_isterm; /* log progress on standard output? */
+static int               stdout_isterm; // log progress on standard output?
 
 static void
 exit_usage(void)
 {
-  fputs("Usage: kcrec [-c CHANNEL] [-d DEVICE] [-r RATE] [-v] FILE...\n", stderr);
+  fputs("Usage: kcrec [-c CHANNEL] [-d DEVICE] [-r RATE] [-t FORMAT] [-v] FILE...\n", stderr);
   exit(optopt != 0);
 }
 
@@ -64,13 +64,13 @@ exit_snd_error(int rc, const char* what)
 static void
 init_audio(const char* devname)
 {
-  snd_pcm_hw_params_t*  hwparams  = 0;
-  snd_pcm_sw_params_t*  swparams  = 0;
-  snd_pcm_uframes_t     bufsize   = 0;
-  unsigned int          buftime   = 1000000;
-  unsigned int          pertime   = 50000;
-  int                   dir       = 0;
-  int                   rc;
+  snd_pcm_hw_params_t* hwparams = 0;
+  snd_pcm_sw_params_t* swparams = 0;
+  snd_pcm_uframes_t    bufsize  = 0;
+  unsigned int         buftime  = 1000000;
+  unsigned int         pertime  = 50000;
+  int                  dir      = 0;
+  int                  rc;
 
   if ((rc = snd_output_stdio_attach(&output, stderr, 0)) < 0)
     exit_snd_error(rc, "log output");
@@ -167,20 +167,21 @@ peek_last_frame(void)
 static unsigned int
 wait_for_edge(void)
 {
-  static unsigned int last_offset = 0;
+  unsigned int countdown = samplerate / 128 + 1;
 
-  unsigned int countdown = (samplerate / 128) + 1;
   int32_t left;
   int32_t right = peek_last_frame();
-  
+
   for (unsigned int i = 0; i < countdown; ++i)
   {
     left  = right;
     right = read_frame();
 
-    /* Note: assumes two's complement */
+    // Note: assumes two's complement
     if ((left ^ right) < 0)
     {
+      static unsigned int last_offset = 0;
+
       unsigned int offset = (((left + right) ^ right) < 0) ? 1 : 0;
       unsigned int delta  = 2 * i + 2 + offset - last_offset;
 
@@ -188,7 +189,7 @@ wait_for_edge(void)
       return delta;
     }
   }
-  return 2 * countdown; /* countdown expired */
+  return 2 * countdown; // countdown expired
 }
 
 static unsigned int
@@ -196,39 +197,49 @@ sync_block(void)
 {
   enum { LEADIN_THRESHOLD = 2 * 24 };
 
-  unsigned long sum   = 0;
-  unsigned int  count = 0;
+  unsigned long min_period = samplerate / 8192;
+  unsigned long max_period = samplerate / 256;
 
-  for (;;)
+  unsigned long timer = 4ul * samplerate; // about 2 seconds
+  unsigned long sum;
+  unsigned long count;
+  unsigned long period;
+
+  for (count = 0, sum = 0;; ++count, sum += period)
   {
-    unsigned int  period = wait_for_edge();
-    unsigned long scaled = 2ul * count * period;
+    period = wait_for_edge();
 
-    if (2 * scaled > 5 * sum || 2 * scaled < 3 * sum)
+    // Virtual band-pass filter
+    if (period > min_period && period < max_period)
     {
-      if (count > LEADIN_THRESHOLD && scaled > 3 * sum && scaled < 5 * sum)
+      unsigned long ex = count * period; // extrapolation
+
+      // Period within +/-25% of the average?
+      if (4 * ex >= 3 * sum && 4 * ex <= 5 * sum)
+        continue;
+
+      // Minimum duration passed and period within +/-33% of 2 * average?
+      if (count > LEADIN_THRESHOLD && 3 * ex > 4 * sum && 3 * ex < 8 * sum)
       {
-        unsigned int average = (2 * sum / count + 1) / 2;
+        period = wait_for_edge();
+        unsigned long average = (sum + count / 2) / count;
 
-        if (8192 * average > samplerate && 256 * average < samplerate)
-        {
-          period = wait_for_edge();
-
-          if (3 * period > 5 * average && 3 * period < 7 * average)
-            return average;
-        }
+        // Second half period within +/-25% of 2 * average?
+        if (2 * period > 3 * average && 2 * period < 5 * average)
+          return average;
       }
-      sum   = 0;
-      count = 0;
     }
+    if (timer <= sum)
+      return 0;
 
-    sum += period;
-    ++count;
+    timer -= sum;
+    sum   = 0;
+    count = 0;
   }
 }
 
 static unsigned int
-read_bit(void)
+record_bit(void)
 {
   unsigned int norm  = sync_period;
   unsigned int first = wait_for_edge();
@@ -237,23 +248,23 @@ read_bit(void)
   {
     unsigned int second = wait_for_edge();
 
-    /* The last oscillation at the end of every block is missing its second
-     * half period: KC bug!  Thus, let overlong periods pass. */
+    // The last oscillation at the end of every block is missing its second
+    // half period: KC bug!  Thus, let overlong periods pass.
     if (3 * second > norm)
     {
-      if (4 * second < 3 * norm)
+      if (4 * second < 3 * norm) // below norm/2 +50%?
       {
         if (first < norm)
           return BIT_0;
       }
-      else if (2 * second > 3 * norm)
+      else if (3 * second > 4 * norm) // above 2*norm - 33%?
       {
         if (first > norm)
           return BIT_T;
       }
       else
       {
-        if (2 * first > norm && first < 2 * norm)
+        if (3 * first > 2 * norm && 3 * first < 5 * norm) // within norm -33%/+66%?
           return BIT_1;
       }
     }
@@ -263,13 +274,13 @@ read_bit(void)
 }
 
 static unsigned int
-read_byte(void)
+record_byte(void)
 {
   unsigned int byte = 0;
 
   for (int i = 0; i < 8; ++i)
   {
-    unsigned int bit = read_bit();
+    unsigned int bit = record_bit();
 
     if (bit > BIT_1)
     {
@@ -279,7 +290,7 @@ read_byte(void)
     byte = (byte >> 1) | (bit << 7);
   }
 
-  if (read_bit() != BIT_T)
+  if (record_bit() != BIT_T)
   {
     fputs("Analog signal synchronization loss\n", stderr);
     exit(1);
@@ -287,110 +298,159 @@ read_byte(void)
   return byte;
 }
 
-static unsigned int
-read_block(unsigned char* data)
+static int
+record_block(unsigned char* data)
 {
   sync_period = sync_block();
-  unsigned int blocknr = read_byte();
 
+  if (sync_period == 0)
+    return -1; // timeout
+
+  int blocknr = record_byte();
   unsigned int checksum = 0;
 
   for (int i = 0; i < 128; ++i)
   {
-    unsigned int b = read_byte();
-    data[i] = b;
-    checksum += b;
+    unsigned int byte = record_byte();
+    data[i] = byte;
+    checksum += byte;
   }
-  if ((checksum & 0xFF) != read_byte())
+  if ((checksum & 0xFF) != record_byte())
   {
     fputs("Block checksum error\n", stderr);
     exit(1);
   }
-
   return blocknr;
 }
 
 static void
-read_kcfile(const char* filename)
+record_kcfile(const char* filename, KCFileFormat format)
 {
-  FILE*         kcfile;
-  unsigned int  load, end, start;
-  int           nargs;
-  int           nblocks;
-  unsigned int  blocknr;
-  uint8_t       block[128];
+  FILE*        kcfile;
+  unsigned int length;
+  int          blocknr;
+  int          nblocks = INT_MAX / 128;
+  wchar_t      name[12];
+  uint8_t      block[128];
+
+  if (format == KC_FORMAT_ANY)
+  {
+    format = kc_format_from_filename(filename);
+
+    if (format == KC_FORMAT_ANY)
+      format = KC_FORMAT_TAP;
+  }
 
   if (filename[0] == '-' && filename[1] == '\0')
     kcfile = stdout;
   else
-    kcfile = fopen(filename, "wb");
-  if (!kcfile)
-    kc_exit_error(filename);
+    if (!(kcfile = fopen(filename, "wb")))
+      kc_exit_error(filename);
 
-  while ((blocknr = read_block(block)) != 1)
+  if (KC_BASE_FORMAT(format) == KC_FORMAT_TAP)
+  {
+    // For TAP files, record blocks in whatever order they come in.
+    do
+      blocknr = record_block(block);
+    while (blocknr < 0);
+
     if (stdout_isterm)
     {
-      printf("%.2X*\n", blocknr);
+      printf("\r%.2X>", blocknr);
       fflush(stdout);
     }
-
-  unsigned int sig = block[0];
-
-  if (((sig & 0xFB) == 0xD3 || (sig & 0xFE) == 0xD4) && block[1] == sig && block[2] == sig)
-  {
-    nargs = 2;
-    unsigned int length = block[11] | (unsigned)block[12] << 8;
-    load = 0x0401;
-    end  = 0x0401 + length;
-    nblocks = (14 + 255 + length) / 128;
+    if (fputs(KC_TAP_MAGIC, kcfile) < 0
+        || putc(blocknr, kcfile) == EOF
+        || fwrite(block, sizeof block, 1, kcfile) == 0)
+      kc_exit_error(filename);
   }
   else
   {
-    nargs = block[16];
+    while ((blocknr = record_block(block)) != 1)
+      if (blocknr >= 0 && stdout_isterm)
+      {
+        printf("%.2X*\n", blocknr);
+        fflush(stdout);
+      }
 
-    load = block[17] | (unsigned)block[18] << 8;
-    end  = block[19] | (unsigned)block[20] << 8;
-
-    if (nargs >= 3)
-      start = block[21] | (unsigned)block[22] << 8;
-
-    if (nargs < 2 || nargs > 10 || load >= end)
+    if (stdout_isterm)
     {
-      fputs("Invalid header information\n", stderr);
-      exit(1);
+      for (int i = 0; i < 11; ++i)
+        name[i] = kc_to_wide_char(block[i]);
+      name[11] = L'\0';
+
+      printf("%ls", name);
     }
-    nblocks = (end - load + 255) / 128;
+
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_SSS)
+    {
+      unsigned int sig = block[0];
+
+      if (((sig & 0xFB) == 0xD3 || (sig & 0xFE) == 0xD4) && block[1] == sig && block[2] == sig)
+      {
+        length  = block[11] | (unsigned)block[12] << 8;
+        nblocks = (14 + 127 + length) / 128;
+      }
+      else
+      {
+        fputs("\nInvalid KC-BASIC start block\n", stderr);
+        exit(1);
+      }
+
+      if (fwrite(&block[11], MIN(sizeof block - 11, 3 + length), 1, kcfile) == 0)
+        kc_exit_error(filename);
+    }
+    else // KC_BASE_FORMAT(format) == KC_FORMAT_KCC
+    {
+      unsigned int load = block[17] | (unsigned)block[18] << 8;
+      unsigned int end  = block[19] | (unsigned)block[20] << 8;
+
+      if (stdout_isterm)
+        printf(" %.4X %.4X", load, end);
+
+      int nargs = block[16];
+
+      if (nargs >= 3)
+      {
+        unsigned int start = block[21] | (unsigned)block[22] << 8;
+
+        if (stdout_isterm)
+          printf(" %.4X", start);
+      }
+      if (nargs < 2 || nargs > 10 || load >= end)
+      {
+        fputs("\nInvalid KCC start block\n", stderr);
+        exit(1);
+      }
+      nblocks = (128 + 127 + end - load) / 128;
+
+      if (fwrite(block, sizeof block, 1, kcfile) == 0)
+        kc_exit_error(filename);
+    }
+
+    if (stdout_isterm)
+      putchar('\n');
   }
-
-  if (stdout_isterm)
-  {
-    wchar_t name[12];
-
-    for (int i = 0; i < 11; ++i)
-      name[i] = kc_to_wide_char(block[i]);
-    name[11] = L'\0';
-
-    printf("%ls %.4X %.4X", name, load, end);
-
-    if (nargs >= 3)
-      printf(" %.4X", start);
-
-    putchar('\n');
-  }
-
-  if (fwrite(block, sizeof block, 1, kcfile) == 0)
-    kc_exit_error(filename);
 
   for (int i = 2; i <= nblocks; ++i)
   {
-    blocknr = read_block(block);
+    blocknr = record_block(block);
 
-    if (blocknr != ((i < nblocks) ? i & 0xFF : 0xFF))
+    if (blocknr < 0)
+      break;
+
+    if (KC_BASE_FORMAT(format) != KC_FORMAT_TAP)
     {
-      if (stdout_isterm)
-        printf("\r%.2X*\n", blocknr);
-      fputs("Block sequence error\n", stderr);
-      exit(1);
+      int expected = (KC_BASE_FORMAT(format) == KC_FORMAT_SSS || i < nblocks) ? i & 0xFF : 0xFF;
+
+      if (blocknr != expected)
+      {
+        if (stdout_isterm)
+          printf("\r%.2X*\n", blocknr);
+
+        fputs("Block sequence error\n", stderr);
+        exit(1);
+      }
     }
     if (stdout_isterm)
     {
@@ -398,7 +458,15 @@ read_kcfile(const char* filename)
       fflush(stdout);
     }
 
-    if (fwrite(block, sizeof block, 1, kcfile) == 0)
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_TAP && putc(blocknr, kcfile) == EOF)
+      kc_exit_error(filename);
+
+    size_t writesize = sizeof block;
+
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_SSS && blocknr == nblocks)
+      writesize = sizeof block + 14 + length - nblocks * sizeof block;
+
+    if (fwrite(block, writesize, 1, kcfile) == 0)
       kc_exit_error(filename);
   }
 
@@ -407,21 +475,29 @@ read_kcfile(const char* filename)
 
   if (kcfile != stdout && fclose(kcfile) != 0)
     kc_exit_error(filename);
+
+  if (blocknr < 0 && KC_BASE_FORMAT(format) != KC_FORMAT_TAP)
+  {
+    fputs("Block sequence timeout\n", stderr);
+    exit(1);
+  }
 }
 
 int
 main(int argc, char** argv)
 {
-  const char* devname = "default";
-  int         verbose = 0;
-  int         c, rc;
+  const char*  devname = "default";
+  int          verbose = 0;
+  KCFileFormat format  = KC_FORMAT_ANY;
+  int          c, rc;
 
-  while ((c = getopt(argc, argv, "c:d:r:v?")) != -1)
+  while ((c = getopt(argc, argv, "c:d:r:t:v?")) != -1)
     switch (c)
     {
       case 'c': channel    = kc_parse_arg_int(optarg, 1, 256) - 1; break;
       case 'd': devname    = optarg; break;
       case 'r': samplerate = kc_parse_arg_num(optarg, 1.0, 1 << 24, 1.0); break;
+      case 't': format     = kc_parse_arg_format(optarg); break;
       case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();
@@ -450,7 +526,7 @@ main(int argc, char** argv)
   periodpos = periodsize;
 
   for (int i = optind; i < argc; ++i)
-    read_kcfile(argv[i]);
+    record_kcfile(argv[i], format);
 
   free(periodbuf);
 

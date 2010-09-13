@@ -26,6 +26,7 @@ noinst_LIBRARIES = libkc/libkc.a libkcui/libkcui.a
 libkc_libkc_a_SOURCES =	\
 	libkc/charset.c	\
 	libkc/cmdline.c	\
+	libkc/kctape.c	\
 	libkc/libkc.h
 
 libkcui_libkcui_a_SOURCES =	\

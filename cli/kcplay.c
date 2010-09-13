@@ -1,16 +1,16 @@
 /*
  * Copyright (c) Daniel Elstner 2008-2010 <daniel.kitta@gmail.com>
- * 
+ *
  * KCPlay is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * KCPlay is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -31,14 +31,15 @@
 
 enum BitLength
 {
-  BIT_0 = 0, /* 2400 Hz */
-  BIT_1 = 1, /* 1200 Hz */
-  BIT_T = 2  /*  600 Hz */
+  BIT_0 = 0, // 2400 Hz
+  BIT_1 = 1, // 1200 Hz
+  BIT_T = 2  //  600 Hz
 };
 
 enum
 {
-  SYNC_CYCLES = 160
+  SYNC_CYCLES = 160,
+  PRE_CYCLES  = 1200 - SYNC_CYCLES
 };
 
 static snd_pcm_t*        audio      = 0;
@@ -50,15 +51,27 @@ static unsigned int      samplerate = 48000;
 static unsigned int      n_channels = 1;
 static unsigned int      phase      = 0;
 static unsigned int      basefreq   = 600;
-static int               amplitude  = 23170; /* 1 / sqrt(2) */
+static int               amplitude  = 23170; // 1 / sqrt(2)
 static unsigned int      ratescale;
-static int               stdout_isterm; /* log progress on standard output? */
+static int               stdout_isterm; // log progress on standard output?
 
 static void
 exit_usage(void)
 {
-  fputs("Usage: kcplay [-a VOLUME] [-f FREQUENCY] [-r RATE] [-d DEVICE] [-v] FILE...\n", stderr);
+  fputs("Usage: kcplay [-a VOLUME] [-d DEVICE] [-f FREQUENCY]"
+        " [-r RATE] [-t FORMAT] [-v] FILE...\n", stderr);
   exit(optopt != 0);
+}
+
+static void
+exit_file_error(FILE* stream, const char* filename)
+{
+  if (ferror(stream))
+    perror(filename);
+  else
+    fprintf(stderr, "%s: premature end of file\n", filename);
+
+  exit(1);
 }
 
 static void
@@ -143,7 +156,7 @@ init_audio(const char* devname)
 }
 
 static void
-write_frame(int sample)
+play_frame(int sample)
 {
   for (unsigned int i = 0; i < n_channels; ++i)
     periodbuf[n_channels * periodpos + i] = sample;
@@ -179,18 +192,20 @@ approx_cosine(unsigned int x, unsigned int amp)
     PREC = 15,
     ONE  = 1 << PREC
   };
-
   unsigned int phi  = (x * ratescale) >> (30 - PREC);
   unsigned int phi2 = (phi * phi) >> PREC;
 
-  /* Compute the eigth-degree Taylor polynomial for the cosine function */
+  // Compute the eigth-degree Taylor polynomial for the cosine function:
+  //              x^2   x^4   x^6   x^8
+  // cos(x) = 1 - --- + --- - --- + ---
+  //               2!    4!    6!    8!
   unsigned int icos = 2 * ONE - phi2 * (ONE - phi2 * (ONE - phi2 * (ONE - phi2
                       / 56) / (30 * ONE)) / (12 * ONE)) / ONE;
   return (amp * icos) >> (PREC + 1);
 }
 
 static void
-write_bit(int t)
+play_bit(int t)
 {
   unsigned int srate = samplerate;
   unsigned int phi   = phase;
@@ -198,24 +213,24 @@ write_bit(int t)
   int          amp   = amplitude;
 
   for (; phi < (srate << t) / 2; phi += step)
-    write_frame(approx_cosine(phi >> t, amp));
+    play_frame(approx_cosine(phi >> t, amp));
 
   for (; phi < (srate << t); phi += step)
-    write_frame(-approx_cosine(srate - (phi >> t), amp));
+    play_frame(-approx_cosine(srate - (phi >> t), amp));
 
   phi -= srate << t;
 
   for (; phi < (srate << t) / 2; phi += step)
-    write_frame(-approx_cosine(phi >> t, amp));
+    play_frame(-approx_cosine(phi >> t, amp));
 
   for (; phi < (srate << t); phi += step)
-    write_frame(approx_cosine(srate - (phi >> t), amp));
+    play_frame(approx_cosine(srate - (phi >> t), amp));
 
   phase = phi - (srate << t);
 }
 
 static void
-write_ramp(int slope)
+play_ramp(int slope)
 {
   unsigned int srate = samplerate;
   unsigned int phi   = phase;
@@ -223,33 +238,33 @@ write_ramp(int slope)
   int          amp   = amplitude;
 
   for (; phi < srate; phi += step)
-    write_frame((amp + 1 - slope * approx_cosine(phi / 2, amp)) >> 1);
+    play_frame((amp + 1 - slope * approx_cosine(phi / 2, amp)) >> 1);
 
   for (; phi < 2 * srate; phi += step)
-    write_frame((amp + 1 + slope * approx_cosine(srate - phi / 2, amp)) >> 1);
+    play_frame((amp + 1 + slope * approx_cosine(srate - phi / 2, amp)) >> 1);
 
   phase = phi - 2 * srate;
 }
 
 static void
-write_byte(unsigned int byte)
+play_byte(unsigned int byte)
 {
   for (int i = 0; i < 8; ++i)
   {
-    write_bit(byte & BIT_1);
+    play_bit(byte & BIT_1);
     byte >>= 1;
   }
-  write_bit(BIT_T);
+  play_bit(BIT_T);
 }
 
 static void
-write_block(unsigned int blocknr, const uint8_t* data)
+play_block(unsigned int blocknr, const uint8_t* data)
 {
   for (int i = 0; i < SYNC_CYCLES; ++i)
-    write_bit(BIT_1);
+    play_bit(BIT_1);
 
-  write_bit(BIT_T);
-  write_byte(blocknr);
+  play_bit(BIT_T);
+  play_byte(blocknr);
 
   unsigned int checksum = 0;
 
@@ -257,9 +272,9 @@ write_block(unsigned int blocknr, const uint8_t* data)
   {
     unsigned int b = data[i];
     checksum += b;
-    write_byte(b);
+    play_byte(b);
   }
-  write_byte(checksum & 0xFF);
+  play_byte(checksum & 0xFF);
 
   if (stdout_isterm)
   {
@@ -269,95 +284,180 @@ write_block(unsigned int blocknr, const uint8_t* data)
 }
 
 static void
-write_kcfile(const char* filename)
+play_kcfile(const char* filename, KCFileFormat format)
 {
   FILE*        kcfile;
-  unsigned int load, end, start;
-  int          nargs;
-  int          nblocks;
+  unsigned int length  = UINT_MAX;
+  unsigned int load    = UINT_MAX;
+  unsigned int end     = UINT_MAX;
+  unsigned int start   = UINT_MAX;
+  int          blocknr = 1;
+  int          nblocks = INT_MAX / 128;
+  wchar_t      name[12];
   uint8_t      block[128];
+
+  if (format == KC_FORMAT_ANY)
+  {
+    format = kc_format_from_filename(filename);
+
+    if (format == KC_FORMAT_ANY)
+      format = KC_FORMAT_TAP;
+  }
 
   if (filename[0] == '-' && filename[1] == '\0')
     kcfile = stdin;
   else
-    kcfile = fopen(filename, "rb");
+    if (!(kcfile = fopen(filename, "rb")))
+      kc_exit_error(filename);
 
-  if (!kcfile || fread(&block, sizeof block, 1, kcfile) <= 0)
-    kc_exit_error(filename);
-
-  unsigned int sig = block[0];
-
-  if ((sig & 0xFB) == 0xD3 && block[1] == sig && block[2] == sig)
+  switch (KC_BASE_FORMAT(format))
   {
-    nargs = 2;
-
-    unsigned int length = block[11] | (unsigned)block[12] << 8;
-    load = 0x0401;
-    end  = 0x0401 + length;
-    nblocks = (14 + 255 + length) / 128;
-  }
-  else
-  {
-    nargs = block[16];
-
-    load = block[17] | (unsigned)block[18] << 8;
-    end  = block[19] | (unsigned)block[20] << 8;
-
-    if (nargs >= 3)
-      start = block[21] | (unsigned)block[22] << 8;
-
-    if (nargs < 2 || nargs > 10 || load >= end)
+    case KC_FORMAT_TAP:
     {
-      fprintf(stderr, "%s: invalid raw tape image header\n", filename);
-      exit(1);
+      if (fread(block, KC_TAP_MAGIC_LEN + 1, 1, kcfile) == 0)
+        exit_file_error(kcfile, filename);
+
+      if (memcmp(block, KC_TAP_MAGIC, KC_TAP_MAGIC_LEN) != 0)
+      {
+        fputs("TAP file ID not found\n", stderr);
+        exit(1);
+      }
+      blocknr = block[KC_TAP_MAGIC_LEN];
+
+      if (fread(block, sizeof block, 1, kcfile) == 0)
+        exit_file_error(kcfile, filename);
+      break;
     }
-    nblocks = (end - load + 255) / 128;
+    case KC_FORMAT_KCC:
+    {
+      if (fread(block, sizeof block, 1, kcfile) == 0)
+        exit_file_error(kcfile, filename);
+
+      load = block[17] | (unsigned)block[18] << 8;
+      end  = block[19] | (unsigned)block[20] << 8;
+
+      int nargs = block[16];
+
+      if (nargs >= 3)
+        start = block[21] | (unsigned)block[22] << 8;
+
+      if (nargs < 2 || nargs > 10 || load >= end)
+      {
+        fprintf(stderr, "%s: Invalid KCC start block\n", filename);
+        exit(1);
+      }
+      nblocks = (128 + 127 + end - load) / 128;
+      break;
+    }
+    case KC_FORMAT_SSS:
+    {
+      kc_filename_to_tape(format, filename, block);
+
+      if (fread(&block[11], 2, 1, kcfile) == 0)
+        exit_file_error(kcfile, filename);
+
+      length  = block[11] | (unsigned)block[12] << 8;
+      nblocks = (14 + 127 + length) / 128;
+
+      if (fread(&block[13], MIN(length + 1, sizeof block - 13), 1, kcfile) == 0)
+        exit_file_error(kcfile, filename);
+
+      if (length < sizeof block - 14)
+        memset(&block[14 + length], 0, sizeof block - 14 - length);
+      break;
+    }
+    default:
+      abort();
   }
 
   if (stdout_isterm)
   {
-    wchar_t name[12];
-
     for (int i = 0; i < 11; ++i)
       name[i] = kc_to_wide_char(block[i]);
     name[11] = L'\0';
 
-    printf("%ls %.4X %.4X", name, load, end);
+    printf("%ls", name);
 
-    if (nargs >= 3)
-      printf(" %.4X", start);
+    if (load != UINT_MAX)
+    {
+      printf(" %.4X %.4X", load, end);
 
+      if (start != UINT_MAX)
+        printf(" %.4X", start);
+    }
     putchar('\n');
   }
 
-  write_ramp(1);
+  play_ramp(1);
 
-  /* The initial lead-in sound is played for about 8000 oscillations according
-   * to the original documentation.  That length is useful for seeking on tape,
-   * but otherwise not required.  About one second (at 1200 Hz) is more than
-     * enough. */
-  for (int i = 0; i < 1200 - SYNC_CYCLES; ++i)
-    write_bit(BIT_1);
+  // The initial lead-in sound is played for about 8000 oscillations according
+  // to the original documentation.  That length is useful for seeking on tape,
+  // but otherwise not required.  About one second (at 1200 Hz) is more than
+  // enough.
+  for (int i = 0; i < PRE_CYCLES; ++i)
+    play_bit(BIT_1);
 
-  write_block(1, block);
+  play_block(blocknr, block);
 
   for (int i = 2; i <= nblocks; ++i)
   {
-    if (fread(block, sizeof block, 1, kcfile) == 0)
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_TAP)
     {
-      fprintf(stderr, "%s: premature end of file\n", filename);
-      exit(1);
+      blocknr = getc(kcfile);
+
+      if (blocknr == EOF)
+      {
+        if (ferror(kcfile))
+          kc_exit_error(filename);
+
+        break; // end of TAP file
+      }
     }
-    write_block((i < nblocks) ? i & 0xFF : 0xFF, block);
+    else if (KC_BASE_FORMAT(format) == KC_FORMAT_KCC && i == nblocks)
+      blocknr = 0xFF;
+    else
+      blocknr = i & 0xFF;
+
+    size_t readsize = sizeof block;
+
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_SSS && i == nblocks)
+    {
+      readsize = length + sizeof block + 14 - nblocks * sizeof block;
+      memset(&block[readsize], 0, sizeof block - readsize);
+    }
+    if (fread(block, readsize, 1, kcfile) == 0)
+      exit_file_error(kcfile, filename);
+
+    if (KC_BASE_FORMAT(format) == KC_FORMAT_TAP && blocknr == 1)
+    {
+      if (stdout_isterm)
+      {
+        for (int i = 0; i < 11; ++i)
+          name[i] = kc_to_wide_char(block[i]);
+        name[11] = L'\0';
+
+        printf("\n%ls\n", name);
+      }
+      for (int i = 0; i < PRE_CYCLES; ++i)
+        play_bit(BIT_1);
+    }
+    play_block(blocknr, block);
   }
 
-  write_ramp(-1);
+  // For BASIC tape images (SSS), send the last block twice: first with the
+  // normally incremented block number, and a second time with block number
+  // FF.  This is how the original hardware behaves -- probably to maintain
+  // compatibility with other home computers of the time.
+  if (KC_BASE_FORMAT(format) == KC_FORMAT_SSS)
+    play_block(0xFF, block);
+
+  play_ramp(-1);
 
   if (stdout_isterm)
     putchar('\n');
 
   while (periodpos > 0)
-    write_frame(0);
+    play_frame(0);
 
   if (kcfile != stdin && fclose(kcfile) != 0)
     kc_exit_error(filename);
@@ -366,17 +466,19 @@ write_kcfile(const char* filename)
 int
 main(int argc, char** argv)
 {
-  const char* devname = "default";
-  int         verbose = 0;
-  int         c, rc;
+  const char*  devname = "default";
+  int          verbose = 0;
+  KCFileFormat format  = KC_FORMAT_ANY;
+  int          c, rc;
 
-  while ((c = getopt(argc, argv, "a:d:f:r:v?")) != -1)
+  while ((c = getopt(argc, argv, "a:d:f:r:t:v?")) != -1)
     switch (c)
     {
       case 'a': amplitude  = kc_parse_arg_num(optarg, 0.0, 1.0, INT16_MAX); break;
       case 'd': devname    = optarg; break;
       case 'f': basefreq   = kc_parse_arg_num(optarg, 1.0, 1 << 20, 1.0); break;
       case 'r': samplerate = kc_parse_arg_num(optarg, 1.0, 1 << 24, 1.0); break;
+      case 't': format     = kc_parse_arg_format(optarg); break;
       case 'v': verbose    = 1; break;
       case '?': exit_usage();
       default:  abort();
@@ -399,11 +501,11 @@ main(int argc, char** argv)
             basefreq, samplerate);
     exit(1);
   }
-  ratescale = 3373259426u / samplerate; /* 2^30 * pi / samplerate */
+  ratescale = 3373259426u / samplerate; // 2^30 * pi / samplerate
   periodbuf = malloc(periodsize * n_channels * sizeof(int16_t));
 
   for (int i = optind; i < argc; ++i)
-    write_kcfile(argv[i]);
+    play_kcfile(argv[i], format);
 
   free(periodbuf);
 
